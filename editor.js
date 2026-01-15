@@ -42,7 +42,7 @@ function loadScriptFromUrl() {
   if (scriptId) {
     loadExistingScript(scriptId, viewMode);
   } else {
-    editorMode.textContent = 'New Script';
+    editorMode.textContent = 'New';
   }
 }
 
@@ -60,14 +60,17 @@ async function loadExistingScript(scriptId, viewMode = false) {
 
       if (viewMode) {
         // Enable read-only mode
-        editorMode.textContent = 'View Script (Read-Only)';
+        editorMode.textContent = 'View (Read-Only)';
         document.title = `View: ${script.name} - JS Script Manager`;
         scriptName.readOnly = true;
         scriptCode.readOnly = true;
         saveBtn.style.display = 'none';
-        cancelBtn.textContent = 'Close';
+        const cancelBtnSpans = cancelBtn.querySelectorAll('span');
+        if (cancelBtnSpans.length > 1) {
+          cancelBtnSpans[1].textContent = 'Close';
+        }
       } else {
-        editorMode.textContent = 'Edit Script';
+        editorMode.textContent = 'Edit';
         document.title = `Edit: ${script.name} - JS Script Manager`;
       }
     } else {
@@ -154,7 +157,7 @@ function closeEditor() {
 // Show error message
 function showError(message) {
   errorMessage.textContent = message;
-  errorMessage.style.display = 'block';
+  errorMessage.style.display = 'flex';
   successMessage.style.display = 'none';
 
   // Auto-hide after 5 seconds
@@ -166,7 +169,7 @@ function showError(message) {
 // Show success message
 function showSuccess(message) {
   successMessage.textContent = message;
-  successMessage.style.display = 'block';
+  successMessage.style.display = 'flex';
   errorMessage.style.display = 'none';
 
   // Auto-hide after 3 seconds

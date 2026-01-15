@@ -8,44 +8,65 @@
 </head>
 <body>
   <div class="editor-container">
-    <header class="editor-header">
-      <div class="header-left">
-        <h1>JS Script Manager</h1>
-        <span id="editorMode" class="editor-mode">New Script</span>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+      <div class="nav-content">
+        <div class="nav-left">
+          <span class="nav-icon">⚡</span>
+          <h1 class="nav-title">Script Manager</h1>
+          <span class="nav-page">/ <span id="editorMode">Editor</span></span>
+        </div>
+        <div class="nav-right">
+          <button id="cancelBtn" class="nav-btn secondary">
+            <span>✕</span>
+            <span>Cancel</span>
+          </button>
+          <button id="saveBtn" class="nav-btn primary">
+            <span>💾</span>
+            <span>Save Script</span>
+          </button>
+        </div>
       </div>
-      <div class="header-right">
-        <button id="cancelBtn" class="btn btn-secondary">Cancel</button>
-        <button id="saveBtn" class="btn btn-primary">Save Script</button>
-      </div>
-    </header>
+    </nav>
 
+    <!-- Main Editor -->
     <main class="editor-main">
-      <div class="form-section">
-        <label for="scriptName" class="form-label">Script Name</label>
-        <input
-          type="text"
-          id="scriptName"
-          class="form-input"
-          placeholder="Enter a descriptive name for your script..."
-          autofocus
-        >
-      </div>
+      <div class="editor-content">
+        <!-- Script Name -->
+        <div class="form-group">
+          <label for="scriptName" class="form-label">
+            <span class="label-icon">📝</span>
+            Script Name
+          </label>
+          <input
+            type="text"
+            id="scriptName"
+            class="form-input"
+            placeholder="Enter a descriptive name for your script..."
+            autofocus
+          >
+        </div>
 
-      <div class="form-section code-section">
-        <label for="scriptCode" class="form-label">JavaScript Code</label>
-        <textarea
-          id="scriptCode"
-          class="code-editor"
-          placeholder="// Enter your JavaScript code here...
-// Example:
-console.log('Hello World!');
-document.body.style.backgroundColor = '#f0f0f0';"
-          spellcheck="false"
-        ></textarea>
-      </div>
+        <!-- Code Editor -->
+        <div class="form-group code-group">
+          <label for="scriptCode" class="form-label">
+            <span class="label-icon">💻</span>
+            JavaScript Code
+          </label>
+          <div class="code-editor-wrapper">
+            <textarea
+              id="scriptCode"
+              class="code-editor"
+              placeholder="// Enter your JavaScript code here...&#10;// Example:&#10;console.log('Hello World!');&#10;document.body.style.backgroundColor = '#f0f0f0';"
+              spellcheck="false"
+            ></textarea>
+          </div>
+        </div>
 
-      <div id="errorMessage" class="error-banner" style="display: none;"></div>
-      <div id="successMessage" class="success-banner" style="display: none;"></div>
+        <!-- Messages -->
+        <div id="errorMessage" class="message-banner error" style="display: none;"></div>
+        <div id="successMessage" class="message-banner success" style="display: none;"></div>
+      </div>
     </main>
   </div>
 
