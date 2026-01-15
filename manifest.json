@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "JS Script Manager",
+  "version": "1.0.0",
+  "description": "Store, manage, and execute JavaScript scripts on any webpage",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}

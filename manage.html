@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage Scripts - JS Script Manager</title>
+  <link rel="stylesheet" href="manage.css">
+</head>
+<body>
+  <div class="manage-container">
+    <header class="manage-header">
+      <div class="header-left">
+        <h1>JS Script Manager</h1>
+        <span class="script-count" id="scriptCount">0 scripts</span>
+      </div>
+      <div class="header-right">
+        <button id="newScriptBtn" class="btn btn-primary">+ New Script</button>
+      </div>
+    </header>
+
+    <div class="manage-content">
+      <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="Search scripts by name..." class="search-input">
+      </div>
+
+      <div id="scriptsContainer" class="scripts-container">
+        <!-- Scripts will be loaded here -->
+      </div>
+
+      <div id="emptyState" class="empty-state" style="display: none;">
+        <div class="empty-icon">📝</div>
+        <h2>No Scripts Yet</h2>
+        <p>Create your first JavaScript script to get started</p>
+        <button id="emptyNewScriptBtn" class="btn btn-primary">+ Create Your First Script</button>
+      </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="modal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Delete Script</h2>
+        </div>
+        <div class="modal-body">
+          <p>Are you sure you want to delete <strong id="deleteScriptName"></strong>?</p>
+          <p class="warning-text">This action cannot be undone.</p>
+        </div>
+        <div class="modal-footer">
+          <button id="cancelDeleteBtn" class="btn btn-secondary">Cancel</button>
+          <button id="confirmDeleteBtn" class="btn btn-danger">Delete</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status Message -->
+    <div id="statusMessage" class="status-message" style="display: none;"></div>
+  </div>
+
+  <script src="manage.js"></script>
+</body>
+</html>

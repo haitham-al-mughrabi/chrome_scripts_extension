@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JS Script Manager</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>JS Script Manager</h1>
+      <div class="header-actions">
+        <button id="manageScriptsBtn" class="btn btn-secondary">📋 Manage</button>
+        <button id="newScriptBtn" class="btn btn-primary">+ New Script</button>
+      </div>
+    </header>
+
+    <div id="searchContainer">
+      <input type="text" id="searchInput" placeholder="Search scripts...">
+    </div>
+
+    <div id="scriptsList" class="scripts-list">
+      <!-- Scripts will be dynamically loaded here -->
+    </div>
+
+    <div id="emptyState" class="empty-state" style="display: none;">
+      <p>No scripts yet. Click "New Script" to create one.</p>
+    </div>
+
+    <!-- Status Message -->
+    <div id="statusMessage" class="status-message" style="display: none;"></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
