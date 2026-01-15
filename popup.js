@@ -101,10 +101,6 @@ function editScript(script) {
 
 // Delete script
 async function deleteScript(id) {
-  if (!confirm('Are you sure you want to delete this script?')) {
-    return;
-  }
-
   const data = await chrome.storage.local.get(STORAGE_KEY);
   const scripts = data[STORAGE_KEY] || [];
   const filteredScripts = scripts.filter(s => s.id !== id);
@@ -112,7 +108,7 @@ async function deleteScript(id) {
   await chrome.storage.local.set({ [STORAGE_KEY]: filteredScripts });
 
   loadScripts();
-  showStatus('Script deleted successfully', 'success');
+  showStatus('Script deleted', 'success');
 }
 
 // Run script
@@ -138,10 +134,10 @@ async function runScript(script) {
       args: [script.code]
     });
 
-    showStatus('Script executed successfully', 'success');
+    showStatus('Script executed', 'success');
   } catch (error) {
     console.error('Error running script:', error);
-    showStatus('Error running script: ' + error.message, 'error');
+    showStatus('Failed to execute script', 'error');
   }
 }
 

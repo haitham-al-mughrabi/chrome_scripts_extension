@@ -175,8 +175,7 @@ body {
 
 .script-card:hover {
   border-color: #667eea;
-  box-shadow: 0 8px 30px rgba(102, 126, 234, 0.2);
-  transform: translateY(-4px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.2);
 }
 
 .script-card-header {

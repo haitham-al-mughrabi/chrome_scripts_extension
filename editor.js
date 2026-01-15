@@ -77,7 +77,7 @@ async function loadExistingScript(scriptId, viewMode = false) {
       showError('Script not found');
     }
   } catch (error) {
-    showError('Error loading script: ' + error.message);
+    showError('Failed to load script');
   }
 }
 
@@ -130,28 +130,21 @@ async function saveScript() {
     // Save to storage
     await chrome.storage.local.set({ [STORAGE_KEY]: scripts });
 
-    showSuccess('Script saved successfully!');
+    showSuccess('Script saved!');
 
     // Close the tab after a short delay
     setTimeout(() => {
       window.close();
-    }, 1000);
+    }, 800);
 
   } catch (error) {
-    showError('Error saving script: ' + error.message);
+    showError('Failed to save script');
   }
 }
 
 // Close editor
 function closeEditor() {
-  // Check if there are unsaved changes
-  if (scriptName.value.trim() || scriptCode.value.trim()) {
-    if (confirm('You have unsaved changes. Are you sure you want to close?')) {
-      window.close();
-    }
-  } else {
-    window.close();
-  }
+  window.close();
 }
 
 // Show error message
@@ -178,14 +171,4 @@ function showSuccess(message) {
   }, 3000);
 }
 
-// Handle beforeunload to warn about unsaved changes
-window.addEventListener('beforeunload', (e) => {
-  if (scriptName.value.trim() || scriptCode.value.trim()) {
-    // Check if we just saved
-    const justSaved = successMessage.style.display === 'block';
-    if (!justSaved) {
-      e.preventDefault();
-      e.returnValue = '';
-    }
-  }
-});
+// Handle beforeunload - removed to avoid annoying warnings

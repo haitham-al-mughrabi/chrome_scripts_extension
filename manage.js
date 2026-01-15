@@ -47,7 +47,7 @@ async function loadScripts() {
     displayScripts(allScripts);
     updateScriptCount(allScripts.length);
   } catch (error) {
-    showStatus('Error loading scripts: ' + error.message, 'error');
+    showStatus('Failed to load scripts', 'error');
   }
 }
 
@@ -173,9 +173,9 @@ async function runScript(script) {
       args: [script.code]
     });
 
-    showStatus(`Script "${script.name}" executed successfully!`, 'success');
+    showStatus('Script executed', 'success');
   } catch (error) {
-    showStatus('Error running script: ' + error.message, 'error');
+    showStatus('Failed to execute script', 'error');
   }
 }
 
@@ -203,11 +203,11 @@ async function confirmDelete() {
 
     await chrome.storage.local.set({ [STORAGE_KEY]: filteredScripts });
 
-    showStatus(`Script "${scriptToDelete.name}" deleted successfully`, 'success');
+    showStatus('Script deleted', 'success');
     closeDeleteModal();
     loadScripts();
   } catch (error) {
-    showStatus('Error deleting script: ' + error.message, 'error');
+    showStatus('Failed to delete script', 'error');
   }
 }
 
