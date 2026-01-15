@@ -56,7 +56,7 @@ function displayScripts(scripts) {
   scriptsContainer.innerHTML = '';
 
   if (scripts.length === 0) {
-    emptyState.style.display = 'block';
+    emptyState.style.display = 'flex';
     scriptsContainer.style.display = 'none';
     return;
   }
@@ -233,7 +233,7 @@ function handleSearch() {
 function showStatus(message, type = 'success') {
   const statusMessage = document.getElementById('statusMessage');
   statusMessage.textContent = message;
-  statusMessage.className = `status-message ${type}`;
+  statusMessage.className = `status-toast ${type}`;
   statusMessage.style.display = 'block';
 
   setTimeout(() => {

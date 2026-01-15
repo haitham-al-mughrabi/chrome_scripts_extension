@@ -7,6 +7,7 @@ const manageScriptsBtn = document.getElementById('manageScriptsBtn');
 const scriptsList = document.getElementById('scriptsList');
 const emptyState = document.getElementById('emptyState');
 const searchInput = document.getElementById('searchInput');
+const scriptCount = document.getElementById('scriptCount');
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -33,6 +34,7 @@ async function loadScripts() {
   const data = await chrome.storage.local.get(STORAGE_KEY);
   const scripts = data[STORAGE_KEY] || [];
   displayScripts(scripts);
+  updateScriptCount(scripts.length);
 }
 
 // Display scripts in the list
@@ -161,11 +163,16 @@ async function handleSearch() {
   displayScripts(filteredScripts);
 }
 
+// Update script count badge
+function updateScriptCount(count) {
+  scriptCount.textContent = count;
+}
+
 // Show status message
 function showStatus(message, type = 'success') {
   const statusMessage = document.getElementById('statusMessage');
   statusMessage.textContent = message;
-  statusMessage.className = `status-message ${type}`;
+  statusMessage.className = `status-toast ${type}`;
   statusMessage.style.display = 'block';
 
   setTimeout(() => {

@@ -8,52 +8,71 @@
 </head>
 <body>
   <div class="manage-container">
-    <header class="manage-header">
-      <div class="header-left">
-        <h1>JS Script Manager</h1>
-        <span class="script-count" id="scriptCount">0 scripts</span>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+      <div class="nav-content">
+        <div class="nav-left">
+          <span class="nav-icon">⚡</span>
+          <h1 class="nav-title">Script Manager</h1>
+          <span class="nav-page">/ Manage</span>
+        </div>
+        <div class="nav-right">
+          <span class="script-count-badge" id="scriptCount">0 scripts</span>
+          <button id="newScriptBtn" class="nav-btn primary">
+            <span>➕</span>
+            <span>New Script</span>
+          </button>
+        </div>
       </div>
-      <div class="header-right">
-        <button id="newScriptBtn" class="btn btn-primary">+ New Script</button>
-      </div>
-    </header>
+    </nav>
 
-    <div class="manage-content">
-      <div class="search-bar">
-        <input type="text" id="searchInput" placeholder="Search scripts by name..." class="search-input">
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Search Bar -->
+      <div class="search-section">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="searchInput" placeholder="Search scripts by name or code content...">
+        </div>
       </div>
 
-      <div id="scriptsContainer" class="scripts-container">
+      <!-- Scripts Grid -->
+      <div id="scriptsContainer" class="scripts-grid">
         <!-- Scripts will be loaded here -->
       </div>
 
+      <!-- Empty State -->
       <div id="emptyState" class="empty-state" style="display: none;">
         <div class="empty-icon">📝</div>
         <h2>No Scripts Yet</h2>
-        <p>Create your first JavaScript script to get started</p>
-        <button id="emptyNewScriptBtn" class="btn btn-primary">+ Create Your First Script</button>
+        <p>Create your first JavaScript script to automate your workflows</p>
+        <button id="emptyNewScriptBtn" class="empty-btn">
+          <span>➕</span>
+          <span>Create Your First Script</span>
+        </button>
       </div>
-    </div>
+    </main>
 
     <!-- Delete Confirmation Modal -->
     <div id="deleteModal" class="modal" style="display: none;">
+      <div class="modal-overlay"></div>
       <div class="modal-content">
         <div class="modal-header">
-          <h2>Delete Script</h2>
+          <h2>🗑 Delete Script</h2>
         </div>
         <div class="modal-body">
           <p>Are you sure you want to delete <strong id="deleteScriptName"></strong>?</p>
-          <p class="warning-text">This action cannot be undone.</p>
+          <p class="warning-text">⚠️ This action cannot be undone.</p>
         </div>
         <div class="modal-footer">
-          <button id="cancelDeleteBtn" class="btn btn-secondary">Cancel</button>
-          <button id="confirmDeleteBtn" class="btn btn-danger">Delete</button>
+          <button id="cancelDeleteBtn" class="modal-btn secondary">Cancel</button>
+          <button id="confirmDeleteBtn" class="modal-btn danger">Delete Forever</button>
         </div>
       </div>
     </div>
 
-    <!-- Status Message -->
-    <div id="statusMessage" class="status-message" style="display: none;"></div>
+    <!-- Status Toast -->
+    <div id="statusMessage" class="status-toast" style="display: none;"></div>
   </div>
 
   <script src="manage.js"></script>

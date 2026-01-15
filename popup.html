@@ -8,28 +8,54 @@
 </head>
 <body>
   <div class="container">
-    <header>
-      <h1>JS Script Manager</h1>
-      <div class="header-actions">
-        <button id="manageScriptsBtn" class="btn btn-secondary">📋 Manage</button>
-        <button id="newScriptBtn" class="btn btn-primary">+ New Script</button>
+    <!-- Header with gradient -->
+    <header class="header">
+      <div class="header-top">
+        <div class="logo">
+          <span class="logo-icon">⚡</span>
+          <h1>Script Manager</h1>
+        </div>
+        <div class="header-stats">
+          <span id="scriptCount" class="badge">0</span>
+        </div>
       </div>
     </header>
 
-    <div id="searchContainer">
-      <input type="text" id="searchInput" placeholder="Search scripts...">
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+      <button id="newScriptBtn" class="action-btn primary">
+        <span class="btn-icon">➕</span>
+        <span>New Script</span>
+      </button>
+      <button id="manageScriptsBtn" class="action-btn secondary">
+        <span class="btn-icon">📚</span>
+        <span>Manage All</span>
+      </button>
     </div>
 
-    <div id="scriptsList" class="scripts-list">
-      <!-- Scripts will be dynamically loaded here -->
+    <!-- Search Bar -->
+    <div class="search-container">
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="searchInput" placeholder="Search your scripts...">
+      </div>
     </div>
 
-    <div id="emptyState" class="empty-state" style="display: none;">
-      <p>No scripts yet. Click "New Script" to create one.</p>
+    <!-- Scripts List -->
+    <div class="scripts-section">
+      <div id="scriptsList" class="scripts-list">
+        <!-- Scripts will be dynamically loaded here -->
+      </div>
+
+      <div id="emptyState" class="empty-state" style="display: none;">
+        <div class="empty-icon">📝</div>
+        <h3>No Scripts Yet</h3>
+        <p>Create your first script to get started</p>
+      </div>
     </div>
 
-    <!-- Status Message -->
-    <div id="statusMessage" class="status-message" style="display: none;"></div>
+    <!-- Status Toast -->
+    <div id="statusMessage" class="status-toast" style="display: none;"></div>
   </div>
 
   <script src="popup.js"></script>
