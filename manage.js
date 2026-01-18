@@ -49,6 +49,9 @@ const panelAutoRun = document.getElementById('panelAutoRun');
 const panelUrlMatchType = document.getElementById('panelUrlMatchType');
 const panelUrlMatch = document.getElementById('panelUrlMatch');
 const urlMatchSection = document.getElementById('urlMatchSection');
+const lineNumbers = document.getElementById('lineNumbers');
+const formatCodeBtn = document.getElementById('formatCodeBtn');
+const fullscreenBtn = document.getElementById('fullscreenBtn');
 const panelTitle = document.getElementById('panelTitle');
 
 // State
@@ -73,6 +76,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Start watching for file changes
   FILE_MANAGER.startWatching(loadScripts);
+  
+  // Add event listeners with delay to ensure DOM is ready
+  setTimeout(() => {
+    if (panelAutoRun) {
+      panelAutoRun.addEventListener('change', toggleUrlMatchSection);
+      console.log('Auto-run event listener added in manage.js');
+    }
+    if (panelUrlMatchType) {
+      panelUrlMatchType.addEventListener('change', toggleUrlMatchInput);
+    }
+  }, 100);
 });
 
 // Cleanup when page unloads
@@ -117,6 +131,12 @@ function setupEventListeners() {
   // Auto-run and URL match listeners
   panelAutoRun.addEventListener('change', toggleUrlMatchSection);
   panelUrlMatchType.addEventListener('change', toggleUrlMatchInput);
+
+  // Code editor listeners
+  panelScriptCode.addEventListener('input', updateLineNumbers);
+  panelScriptCode.addEventListener('scroll', syncLineNumbersScroll);
+  formatCodeBtn.addEventListener('click', formatCode);
+  fullscreenBtn.addEventListener('click', toggleFullscreen);
 
   // Close panel when clicking overlay
   editorPanel.querySelector('.panel-overlay').addEventListener('click', closePanel);
@@ -270,8 +290,16 @@ function openNewScript() {
   panelScriptCode.readOnly = false;
   panelAutoRun.disabled = false;
   savePanelBtn.style.display = 'flex';
-  toggleUrlMatchSection();
   editorPanel.classList.add('active');
+  
+  // Hide URL section for new scripts (auto-run is unchecked)
+  setTimeout(() => {
+    if (urlMatchSection) {
+      urlMatchSection.style.display = 'none';
+    }
+    updateLineNumbers();
+  }, 100);
+  
   panelScriptName.focus();
 }
 
@@ -291,8 +319,25 @@ function viewScript(script) {
   panelUrlMatchType.disabled = true;
   panelUrlMatch.readOnly = true;
   savePanelBtn.style.display = 'none';
-  toggleUrlMatchSection();
   editorPanel.classList.add('active');
+  
+  // Force show URL section if auto-run is enabled
+  if (script.autoRun) {
+    setTimeout(() => {
+      if (urlMatchSection) {
+        urlMatchSection.style.display = 'block';
+        toggleUrlMatchInput();
+      }
+      updateLineNumbers();
+    }, 100);
+  } else {
+    setTimeout(() => {
+      if (urlMatchSection) {
+        urlMatchSection.style.display = 'none';
+      }
+      updateLineNumbers();
+    }, 100);
+  }
 }
 
 // Edit script in side panel
@@ -311,8 +356,26 @@ function editScript(script) {
   panelUrlMatchType.disabled = false;
   panelUrlMatch.readOnly = false;
   savePanelBtn.style.display = 'flex';
-  toggleUrlMatchSection();
   editorPanel.classList.add('active');
+  
+  // Force show URL section if auto-run is enabled
+  if (script.autoRun) {
+    setTimeout(() => {
+      if (urlMatchSection) {
+        urlMatchSection.style.display = 'block';
+        toggleUrlMatchInput();
+      }
+      updateLineNumbers();
+    }, 100);
+  } else {
+    setTimeout(() => {
+      if (urlMatchSection) {
+        urlMatchSection.style.display = 'none';
+      }
+      updateLineNumbers();
+    }, 100);
+  }
+  
   panelScriptName.focus();
 }
 
@@ -363,11 +426,7 @@ async function saveScriptFromPanel() {
     return;
   }
 
-  // Check if directory is selected
-  if (!FILE_MANAGER.hasDirectorySelected()) {
-    showStatus('Please select a directory first', 'error');
-    return;
-  }
+  // Directory selection is optional - scripts will be saved to chrome storage
 
   try {
     let script;
@@ -710,16 +769,32 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
 });
 // Toggle URL match section visibility
 function toggleUrlMatchSection() {
+  console.log('manage.js toggleUrlMatchSection called');
+  console.log('Elements:', {
+    urlMatchSection: !!urlMatchSection,
+    panelAutoRun: !!panelAutoRun,
+    checked: panelAutoRun?.checked
+  });
+  
+  if (!urlMatchSection || !panelAutoRun) {
+    console.log('Elements missing in manage.js');
+    return;
+  }
+  
   if (panelAutoRun.checked) {
+    console.log('Showing URL section');
     urlMatchSection.style.display = 'block';
     toggleUrlMatchInput();
   } else {
+    console.log('Hiding URL section');
     urlMatchSection.style.display = 'none';
   }
 }
 
 // Toggle URL match input visibility
 function toggleUrlMatchInput() {
+  if (!panelUrlMatchType || !panelUrlMatch) return;
+  
   const type = panelUrlMatchType.value;
   if (type === 'all') {
     panelUrlMatch.style.display = 'none';
@@ -737,4 +812,57 @@ function toggleUrlMatchInput() {
     };
     panelUrlMatch.placeholder = placeholders[type] || '';
   }
+}
+
+// Update line numbers
+function updateLineNumbers() {
+  const lines = panelScriptCode.value.split('\n').length;
+  const numbers = Array.from({length: lines}, (_, i) => i + 1).join('\n');
+  lineNumbers.textContent = numbers;
+}
+
+// Sync line numbers scroll with code editor
+function syncLineNumbersScroll() {
+  lineNumbers.scrollTop = panelScriptCode.scrollTop;
+}
+
+// Format code (basic indentation)
+function formatCode() {
+  const code = panelScriptCode.value;
+  try {
+    // Basic formatting - add proper indentation
+    const formatted = code
+      .split('\n')
+      .map(line => line.trim())
+      .reduce((acc, line, i, arr) => {
+        let indent = 0;
+        
+        // Count opening braces before this line
+        for (let j = 0; j < i; j++) {
+          const prevLine = arr[j];
+          indent += (prevLine.match(/{/g) || []).length;
+          indent -= (prevLine.match(/}/g) || []).length;
+        }
+        
+        // Adjust for closing brace on current line
+        if (line.startsWith('}')) indent--;
+        
+        acc.push('  '.repeat(Math.max(0, indent)) + line);
+        return acc;
+      }, [])
+      .join('\n');
+    
+    panelScriptCode.value = formatted;
+    updateLineNumbers();
+    showStatus('Code formatted', 'success');
+  } catch (error) {
+    showStatus('Failed to format code', 'error');
+  }
+}
+
+// Toggle fullscreen mode
+function toggleFullscreen() {
+  const container = document.querySelector('.code-editor-container');
+  container.classList.toggle('fullscreen');
+  fullscreenBtn.textContent = container.classList.contains('fullscreen') ? '⛶' : '⛶';
 }

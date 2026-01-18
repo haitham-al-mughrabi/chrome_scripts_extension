@@ -195,12 +195,24 @@
             <span class="label-icon">💻</span>
             JavaScript Code
           </label>
-          <textarea
-            id="panelScriptCode"
-            class="code-editor"
-            placeholder="// Enter your JavaScript code here...&#10;console.log('Hello World!');"
-            spellcheck="false"
-          ></textarea>
+          <div class="code-editor-container">
+            <div class="code-editor-header">
+              <span class="code-lang">JavaScript</span>
+              <div class="code-editor-controls">
+                <button type="button" class="code-btn" id="formatCodeBtn" title="Format Code">{ }</button>
+                <button type="button" class="code-btn" id="fullscreenBtn" title="Fullscreen">⛶</button>
+              </div>
+            </div>
+            <div class="code-editor-wrapper">
+              <div class="line-numbers" id="lineNumbers">1</div>
+              <textarea
+                id="panelScriptCode"
+                class="code-editor"
+                placeholder="// Enter your JavaScript code here...&#10;console.log('Hello World!');"
+                spellcheck="false"
+              ></textarea>
+            </div>
+          </div>
         </div>
 
         <!-- Auto Run Option -->

@@ -30,6 +30,9 @@ const panelAutoRun = document.getElementById('panelAutoRun');
 const panelUrlMatchType = document.getElementById('panelUrlMatchType');
 const panelUrlMatch = document.getElementById('panelUrlMatch');
 const urlMatchSection = document.getElementById('urlMatchSection');
+const lineNumbers = document.getElementById('lineNumbers');
+const formatCodeBtn = document.getElementById('formatCodeBtn');
+const fullscreenBtn = document.getElementById('fullscreenBtn');
 const panelTitle = document.getElementById('panelTitle');
 
 // Panel state
@@ -87,6 +90,12 @@ function setupEventListeners() {
   // Auto-run and URL match listeners
   panelAutoRun.addEventListener('change', toggleUrlMatchSection);
   panelUrlMatchType.addEventListener('change', toggleUrlMatchInput);
+
+  // Code editor listeners
+  panelScriptCode.addEventListener('input', updateLineNumbers);
+  panelScriptCode.addEventListener('scroll', syncLineNumbersScroll);
+  formatCodeBtn.addEventListener('click', formatCode);
+  fullscreenBtn.addEventListener('click', toggleFullscreen);
 
   // Close panel when clicking overlay
   editorPanel.querySelector('.panel-overlay').addEventListener('click', closePanel);
@@ -186,8 +195,14 @@ function openNewScript() {
   panelScriptName.readOnly = false;
   panelScriptCode.readOnly = false;
   savePanelBtn.style.display = 'flex';
-  toggleUrlMatchSection();
   editorPanel.classList.add('active');
+  
+  // Ensure DOM is ready before toggling sections
+  setTimeout(() => {
+    toggleUrlMatchSection();
+    updateLineNumbers();
+  }, 50);
+  
   panelScriptName.focus();
 }
 
@@ -209,8 +224,14 @@ function editScript(script) {
   panelScriptName.readOnly = false;
   panelScriptCode.readOnly = false;
   savePanelBtn.style.display = 'flex';
-  toggleUrlMatchSection();
   editorPanel.classList.add('active');
+  
+  // Ensure DOM is ready before toggling sections
+  setTimeout(() => {
+    toggleUrlMatchSection();
+    updateLineNumbers();
+  }, 50);
+  
   panelScriptName.focus();
 }
 
@@ -427,6 +448,8 @@ function changePage(page) {
 
 // Toggle URL match section visibility
 function toggleUrlMatchSection() {
+  if (!urlMatchSection || !panelAutoRun) return;
+  
   if (panelAutoRun.checked) {
     urlMatchSection.style.display = 'block';
     toggleUrlMatchInput();
@@ -437,6 +460,8 @@ function toggleUrlMatchSection() {
 
 // Toggle URL match input visibility
 function toggleUrlMatchInput() {
+  if (!panelUrlMatchType || !panelUrlMatch) return;
+  
   const type = panelUrlMatchType.value;
   if (type === 'all') {
     panelUrlMatch.style.display = 'none';
@@ -454,4 +479,57 @@ function toggleUrlMatchInput() {
     };
     panelUrlMatch.placeholder = placeholders[type] || '';
   }
+}
+
+// Update line numbers
+function updateLineNumbers() {
+  const lines = panelScriptCode.value.split('\n').length;
+  const numbers = Array.from({length: lines}, (_, i) => i + 1).join('\n');
+  lineNumbers.textContent = numbers;
+}
+
+// Sync line numbers scroll with code editor
+function syncLineNumbersScroll() {
+  lineNumbers.scrollTop = panelScriptCode.scrollTop;
+}
+
+// Format code (basic indentation)
+function formatCode() {
+  const code = panelScriptCode.value;
+  try {
+    // Basic formatting - add proper indentation
+    const formatted = code
+      .split('\n')
+      .map(line => line.trim())
+      .reduce((acc, line, i, arr) => {
+        let indent = 0;
+        
+        // Count opening braces before this line
+        for (let j = 0; j < i; j++) {
+          const prevLine = arr[j];
+          indent += (prevLine.match(/{/g) || []).length;
+          indent -= (prevLine.match(/}/g) || []).length;
+        }
+        
+        // Adjust for closing brace on current line
+        if (line.startsWith('}')) indent--;
+        
+        acc.push('  '.repeat(Math.max(0, indent)) + line);
+        return acc;
+      }, [])
+      .join('\n');
+    
+    panelScriptCode.value = formatted;
+    updateLineNumbers();
+    showStatus('Code formatted', 'success');
+  } catch (error) {
+    showStatus('Failed to format code', 'error');
+  }
+}
+
+// Toggle fullscreen mode
+function toggleFullscreen() {
+  const container = document.querySelector('.code-editor-container');
+  container.classList.toggle('fullscreen');
+  fullscreenBtn.textContent = container.classList.contains('fullscreen') ? '⛶' : '⛶';
 }

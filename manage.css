@@ -1057,6 +1057,124 @@ body {
   margin-right: 6px;
   opacity: 0.8;
 }
+
+/* Code Editor Styles */
+.code-editor-container {
+  border: 2px solid #e1e5e9;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #1e1e1e;
+  transition: all 0.3s ease;
+}
+
+.code-editor-container.fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10000;
+  border-radius: 0;
+}
+
+.code-editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: #2d2d2d;
+  border-bottom: 1px solid #404040;
+}
+
+.code-lang {
+  font-size: 12px;
+  color: #569cd6;
+  font-weight: 500;
+}
+
+.code-editor-controls {
+  display: flex;
+  gap: 4px;
+}
+
+.code-btn {
+  background: none;
+  border: none;
+  color: #cccccc;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.2s;
+}
+
+.code-btn:hover {
+  background: #404040;
+}
+
+.code-editor-wrapper {
+  display: flex;
+  min-height: 200px;
+  max-height: 400px;
+  background: #1e1e1e;
+}
+
+.code-editor-container.fullscreen .code-editor-wrapper {
+  max-height: calc(100vh - 50px);
+}
+
+.line-numbers {
+  background: #252526;
+  color: #858585;
+  padding: 12px 8px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: right;
+  user-select: none;
+  border-right: 1px solid #404040;
+  overflow: hidden;
+  white-space: pre;
+  min-width: 40px;
+}
+
+.code-editor {
+  flex: 1;
+  background: #1e1e1e;
+  color: #d4d4d4;
+  border: none;
+  padding: 12px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+  overflow-y: auto;
+  white-space: pre;
+  tab-size: 2;
+}
+
+.code-editor::placeholder {
+  color: #6a9955;
+  font-style: italic;
+}
+
+.code-editor::-webkit-scrollbar {
+  width: 12px;
+}
+
+.code-editor::-webkit-scrollbar-track {
+  background: #1e1e1e;
+}
+
+.code-editor::-webkit-scrollbar-thumb {
+  background: #424242;
+  border-radius: 6px;
+}
+
+.code-editor::-webkit-scrollbar-thumb:hover {
+  background: #4f4f4f;
+}
 /* Form select styles */
 .form-select {
   width: 100%;
