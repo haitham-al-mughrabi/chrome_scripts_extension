@@ -13,14 +13,28 @@ const deleteScriptName = document.getElementById('deleteScriptName');
 const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
 const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
 
+// Editor Panel Elements
+const editorPanel = document.getElementById('editorPanel');
+const closePanelBtn = document.getElementById('closePanelBtn');
+const cancelPanelBtn = document.getElementById('cancelPanelBtn');
+const savePanelBtn = document.getElementById('savePanelBtn');
+const panelScriptName = document.getElementById('panelScriptName');
+const panelScriptCode = document.getElementById('panelScriptCode');
+const panelTitle = document.getElementById('panelTitle');
+
 // State
 let allScripts = [];
 let scriptToDelete = null;
+let editingScriptId = null;
+let isViewMode = false;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
   loadScripts();
   setupEventListeners();
+
+  // Set current year in footer
+  document.getElementById('currentYear').textContent = new Date().getFullYear();
 });
 
 // Setup event listeners
@@ -30,6 +44,14 @@ function setupEventListeners() {
   searchInput.addEventListener('input', handleSearch);
   confirmDeleteBtn.addEventListener('click', confirmDelete);
   cancelDeleteBtn.addEventListener('click', closeDeleteModal);
+
+  // Panel event listeners
+  closePanelBtn.addEventListener('click', closePanel);
+  cancelPanelBtn.addEventListener('click', closePanel);
+  savePanelBtn.addEventListener('click', saveScriptFromPanel);
+
+  // Close panel when clicking overlay
+  editorPanel.querySelector('.panel-overlay').addEventListener('click', closePanel);
 
   // Close modal when clicking outside
   deleteModal.addEventListener('click', (e) => {
@@ -137,19 +159,109 @@ function updateScriptCount(count) {
   scriptCount.textContent = `${count} script${count !== 1 ? 's' : ''}`;
 }
 
-// Open new script editor
+// Open new script editor in side panel
 function openNewScript() {
-  window.open('editor.html', '_blank');
+  editingScriptId = null;
+  isViewMode = false;
+  panelTitle.textContent = 'New Script';
+  panelScriptName.value = '';
+  panelScriptCode.value = '';
+  panelScriptName.readOnly = false;
+  panelScriptCode.readOnly = false;
+  savePanelBtn.style.display = 'flex';
+  editorPanel.classList.add('active');
+  panelScriptName.focus();
 }
 
-// View script in read-only mode
+// View script in read-only mode in side panel
 function viewScript(script) {
-  window.open(`editor.html?id=${script.id}&view=true`, '_blank');
+  editingScriptId = script.id;
+  isViewMode = true;
+  panelTitle.textContent = 'View Script';
+  panelScriptName.value = script.name;
+  panelScriptCode.value = script.code;
+  panelScriptName.readOnly = true;
+  panelScriptCode.readOnly = true;
+  savePanelBtn.style.display = 'none';
+  editorPanel.classList.add('active');
 }
 
-// Edit script
+// Edit script in side panel
 function editScript(script) {
-  window.open(`editor.html?id=${script.id}`, '_blank');
+  editingScriptId = script.id;
+  isViewMode = false;
+  panelTitle.textContent = 'Edit Script';
+  panelScriptName.value = script.name;
+  panelScriptCode.value = script.code;
+  panelScriptName.readOnly = false;
+  panelScriptCode.readOnly = false;
+  savePanelBtn.style.display = 'flex';
+  editorPanel.classList.add('active');
+  panelScriptName.focus();
+}
+
+// Close the side panel
+function closePanel() {
+  editorPanel.classList.remove('active');
+  setTimeout(() => {
+    editingScriptId = null;
+    isViewMode = false;
+    panelScriptName.value = '';
+    panelScriptCode.value = '';
+    panelScriptName.readOnly = false;
+    panelScriptCode.readOnly = false;
+    savePanelBtn.style.display = 'flex';
+  }, 300); // Wait for animation to complete
+}
+
+// Save script from panel
+async function saveScriptFromPanel() {
+  const name = panelScriptName.value.trim();
+  const code = panelScriptCode.value.trim();
+
+  if (!name) {
+    showStatus('Please enter a script name', 'error');
+    panelScriptName.focus();
+    return;
+  }
+
+  if (!code) {
+    showStatus('Please enter some code', 'error');
+    panelScriptCode.focus();
+    return;
+  }
+
+  const data = await chrome.storage.local.get(STORAGE_KEY);
+  const scripts = data[STORAGE_KEY] || [];
+
+  if (editingScriptId) {
+    // Update existing script
+    const index = scripts.findIndex(s => s.id === editingScriptId);
+    if (index !== -1) {
+      scripts[index] = {
+        ...scripts[index],
+        name,
+        code,
+        updatedAt: new Date().toISOString()
+      };
+    }
+  } else {
+    // Create new script
+    const newScript = {
+      id: Date.now().toString(),
+      name,
+      code,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    scripts.push(newScript);
+  }
+
+  await chrome.storage.local.set({ [STORAGE_KEY]: scripts });
+
+  showStatus(editingScriptId ? 'Script updated' : 'Script saved', 'success');
+  closePanel();
+  loadScripts();
 }
 
 // Run script

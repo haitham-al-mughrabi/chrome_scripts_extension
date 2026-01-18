@@ -9,10 +9,26 @@ const emptyState = document.getElementById('emptyState');
 const searchInput = document.getElementById('searchInput');
 const scriptCount = document.getElementById('scriptCount');
 
+// Editor Panel Elements
+const editorPanel = document.getElementById('editorPanel');
+const closePanelBtn = document.getElementById('closePanelBtn');
+const cancelPanelBtn = document.getElementById('cancelPanelBtn');
+const savePanelBtn = document.getElementById('savePanelBtn');
+const panelScriptName = document.getElementById('panelScriptName');
+const panelScriptCode = document.getElementById('panelScriptCode');
+const panelTitle = document.getElementById('panelTitle');
+
+// Panel state
+let editingScriptId = null;
+let isViewMode = false;
+
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
   loadScripts();
   setupEventListeners();
+
+  // Set current year in footer
+  document.getElementById('currentYear').textContent = new Date().getFullYear();
 });
 
 // Reload scripts when popup becomes visible (in case scripts were edited)
@@ -27,6 +43,14 @@ function setupEventListeners() {
   newScriptBtn.addEventListener('click', openNewScript);
   manageScriptsBtn.addEventListener('click', openManagePage);
   searchInput.addEventListener('input', handleSearch);
+
+  // Panel event listeners
+  closePanelBtn.addEventListener('click', closePanel);
+  cancelPanelBtn.addEventListener('click', closePanel);
+  savePanelBtn.addEventListener('click', saveScriptFromPanel);
+
+  // Close panel when clicking overlay
+  editorPanel.querySelector('.panel-overlay').addEventListener('click', closePanel);
 }
 
 // Load scripts from storage
@@ -84,9 +108,18 @@ function createScriptItem(script) {
   return div;
 }
 
-// Open new script in editor page
+// Open new script in side panel
 function openNewScript() {
-  chrome.tabs.create({ url: 'editor.html' });
+  editingScriptId = null;
+  isViewMode = false;
+  panelTitle.textContent = 'New Script';
+  panelScriptName.value = '';
+  panelScriptCode.value = '';
+  panelScriptName.readOnly = false;
+  panelScriptCode.readOnly = false;
+  savePanelBtn.style.display = 'flex';
+  editorPanel.classList.add('active');
+  panelScriptName.focus();
 }
 
 // Open manage scripts page
@@ -94,9 +127,82 @@ function openManagePage() {
   chrome.tabs.create({ url: 'manage.html' });
 }
 
-// Open edit script in editor page
+// Open edit script in side panel
 function editScript(script) {
-  chrome.tabs.create({ url: `editor.html?id=${script.id}` });
+  editingScriptId = script.id;
+  isViewMode = false;
+  panelTitle.textContent = 'Edit Script';
+  panelScriptName.value = script.name;
+  panelScriptCode.value = script.code;
+  panelScriptName.readOnly = false;
+  panelScriptCode.readOnly = false;
+  savePanelBtn.style.display = 'flex';
+  editorPanel.classList.add('active');
+  panelScriptName.focus();
+}
+
+// Close the side panel
+function closePanel() {
+  editorPanel.classList.remove('active');
+  setTimeout(() => {
+    editingScriptId = null;
+    isViewMode = false;
+    panelScriptName.value = '';
+    panelScriptCode.value = '';
+    panelScriptName.readOnly = false;
+    panelScriptCode.readOnly = false;
+    savePanelBtn.style.display = 'flex';
+  }, 300); // Wait for animation to complete
+}
+
+// Save script from panel
+async function saveScriptFromPanel() {
+  const name = panelScriptName.value.trim();
+  const code = panelScriptCode.value.trim();
+
+  if (!name) {
+    showStatus('Please enter a script name', 'error');
+    panelScriptName.focus();
+    return;
+  }
+
+  if (!code) {
+    showStatus('Please enter some code', 'error');
+    panelScriptCode.focus();
+    return;
+  }
+
+  const data = await chrome.storage.local.get(STORAGE_KEY);
+  const scripts = data[STORAGE_KEY] || [];
+
+  if (editingScriptId) {
+    // Update existing script
+    const index = scripts.findIndex(s => s.id === editingScriptId);
+    if (index !== -1) {
+      scripts[index] = {
+        ...scripts[index],
+        name,
+        code,
+        updatedAt: new Date().toISOString()
+      };
+    }
+  } else {
+    // Create new script
+    const newScript = {
+      id: Date.now().toString(),
+      name,
+      code,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    scripts.push(newScript);
+  }
+
+  await chrome.storage.local.set({ [STORAGE_KEY]: scripts });
+
+  showStatus(editingScriptId ? 'Script updated' : 'Script saved', 'success');
+  closePanel();
+  loadScripts();
 }
 
 // Delete script

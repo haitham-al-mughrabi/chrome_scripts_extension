@@ -56,6 +56,66 @@
 
     <!-- Status Toast -->
     <div id="statusMessage" class="status-toast" style="display: none;"></div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <p>Developed by Haitham Al Mughrabi, all rights reserved ❤️ <span id="currentYear"></span></p>
+    </footer>
+  </div>
+
+  <!-- Editor Side Panel -->
+  <div id="editorPanel" class="editor-panel">
+    <div class="panel-overlay"></div>
+    <div class="panel-content">
+      <!-- Panel Header -->
+      <div class="panel-header">
+        <div class="panel-title">
+          <span class="panel-icon">✨</span>
+          <h2 id="panelTitle">New Script</h2>
+        </div>
+        <button id="closePanelBtn" class="close-btn">✕</button>
+      </div>
+
+      <!-- Panel Body -->
+      <div class="panel-body">
+        <!-- Script Name -->
+        <div class="form-group">
+          <label for="panelScriptName" class="form-label">
+            <span class="label-icon">📝</span>
+            Script Name
+          </label>
+          <input
+            type="text"
+            id="panelScriptName"
+            class="form-input"
+            placeholder="Enter a descriptive name..."
+          >
+        </div>
+
+        <!-- Code Editor -->
+        <div class="form-group">
+          <label for="panelScriptCode" class="form-label">
+            <span class="label-icon">💻</span>
+            JavaScript Code
+          </label>
+          <textarea
+            id="panelScriptCode"
+            class="code-editor"
+            placeholder="// Enter your JavaScript code here...&#10;console.log('Hello World!');"
+            spellcheck="false"
+          ></textarea>
+        </div>
+      </div>
+
+      <!-- Panel Footer -->
+      <div class="panel-footer">
+        <button id="cancelPanelBtn" class="footer-btn secondary">Cancel</button>
+        <button id="savePanelBtn" class="footer-btn primary">
+          <span>💾</span>
+          <span>Save Script</span>
+        </button>
+      </div>
+    </div>
   </div>
 
   <script src="popup.js"></script>

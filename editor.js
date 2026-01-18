@@ -17,6 +17,9 @@ let currentScriptId = null;
 document.addEventListener('DOMContentLoaded', () => {
   loadScriptFromUrl();
   setupEventListeners();
+
+  // Set current year in footer
+  document.getElementById('currentYear').textContent = new Date().getFullYear();
 });
 
 // Setup event listeners
