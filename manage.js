@@ -46,6 +46,8 @@ const savePanelBtn = document.getElementById('savePanelBtn');
 const panelScriptName = document.getElementById('panelScriptName');
 const panelScriptCode = document.getElementById('panelScriptCode');
 const panelAutoRun = document.getElementById('panelAutoRun');
+const panelPersistent = document.getElementById('panelPersistent');
+const panelBypassSecurity = document.getElementById('panelBypassSecurity');
 const panelUrlMatchType = document.getElementById('panelUrlMatchType');
 const panelUrlMatch = document.getElementById('panelUrlMatch');
 const urlMatchSection = document.getElementById('urlMatchSection');
@@ -415,12 +417,17 @@ async function saveScriptFromPanel() {
     return;
   }
 
-  // Validate JavaScript code
-  const codeValidation = validateJavaScript(code);
-  if (!codeValidation.valid) {
-    showStatus(`Invalid code: ${codeValidation.reason}`, 'error');
-    panelScriptCode.focus();
-    return;
+  // Validate JavaScript code (unless bypassed)
+  if (!bypassSecurity) {
+    const codeValidation = validateJavaScript(code);
+    if (!codeValidation.valid) {
+      showStatus(`Invalid code: ${codeValidation.reason}. Check "Bypass security" to override.`, 'error');
+      panelScriptCode.focus();
+      return;
+    }
+  } else {
+    // Show warning when bypassing security
+    showStatus('⚠️ Security validation bypassed - use at your own risk!', 'warning');
   }
 
   // Validate URL matching if auto-run is enabled

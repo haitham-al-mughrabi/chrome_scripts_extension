@@ -14,6 +14,10 @@
       url: window.location.href 
     });
   } catch (error) {
+    if (error.message.includes('Extension context invalidated')) {
+      console.log('Extension was reloaded, skipping script execution');
+      return;
+    }
     console.error('Error requesting auto-run scripts:', error);
   }
 })();
@@ -34,6 +38,10 @@ const observer = new MutationObserver(() => {
           url: window.location.href 
         });
       } catch (error) {
+        if (error.message.includes('Extension context invalidated')) {
+          console.log('Extension was reloaded, skipping persistent script execution');
+          return;
+        }
         console.error('Error requesting persistent scripts:', error);
       }
     }, 100); // Small delay to let page settle

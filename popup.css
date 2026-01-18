@@ -753,6 +753,26 @@ body {
   font-size: 14px;
   color: #555;
 }
+
+/* Security warning styling */
+.security-warning {
+  display: block !important;
+}
+
+.security-warning .label-text {
+  color: #ff5722 !important;
+}
+
+.security-warning .checkbox-custom {
+  border-color: #ff5722 !important;
+}
+
+.security-warning .checkbox-input:checked + .checkbox-custom {
+  background-color: #ff5722 !important;
+  border-color: #ff5722 !important;
+}
+
+
 /* Auto-run indicator */
 .auto-run-indicator {
   font-size: 12px;

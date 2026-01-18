@@ -1,3 +1,7 @@
+// TEST: Check if JavaScript is loading
+console.log('🚀 popup.js loaded successfully!');
+
+
 // Storage key
 const STORAGE_KEY = 'js_scripts';
 
@@ -28,6 +32,7 @@ const panelScriptName = document.getElementById('panelScriptName');
 const panelScriptCode = document.getElementById('panelScriptCode');
 const panelAutoRun = document.getElementById('panelAutoRun');
 const panelPersistent = document.getElementById('panelPersistent');
+const panelBypassSecurity = document.getElementById('panelBypassSecurity');
 const panelUrlMatchType = document.getElementById('panelUrlMatchType');
 const panelUrlMatch = document.getElementById('panelUrlMatch');
 const urlMatchSection = document.getElementById('urlMatchSection');
@@ -35,6 +40,13 @@ const lineNumbers = document.getElementById('lineNumbers');
 const formatCodeBtn = document.getElementById('formatCodeBtn');
 const fullscreenBtn = document.getElementById('fullscreenBtn');
 const panelTitle = document.getElementById('panelTitle');
+
+// Debug: Check if elements exist
+console.log('Element check:', {
+  panelBypassSecurity: !!panelBypassSecurity,
+  panelAutoRun: !!panelAutoRun,
+  panelPersistent: !!panelPersistent
+});
 
 // Panel state
 let editingScriptId = null;
@@ -138,6 +150,27 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     }
   });
+  
+  // Force add bypass security checkbox if missing
+  setTimeout(() => {
+    const bypassCheckbox = document.getElementById('panelBypassSecurity');
+    if (!bypassCheckbox) {
+      const persistentGroup = document.querySelector('#panelPersistent').closest('.form-group');
+      const newGroup = document.createElement('div');
+      newGroup.className = 'form-group';
+      newGroup.innerHTML = `
+        <label class="checkbox-label security-warning">
+          <input type="checkbox" id="panelBypassSecurity" class="checkbox-input">
+          <span class="checkbox-custom"></span>
+          <span class="label-text">
+            <span class="label-icon">⚠️</span>
+            Bypass security validation (use at your own risk)
+          </span>
+        </label>
+      `;
+      persistentGroup.parentNode.insertBefore(newGroup, persistentGroup.nextSibling);
+    }
+  }, 100);
 });
 
 // Cleanup when popup closes
@@ -339,6 +372,30 @@ function openNewScript() {
   panelScriptCode.value = '';
   panelAutoRun.checked = false;
   panelPersistent.checked = false;
+  
+  // FORCE ADD BYPASS SECURITY CHECKBOX
+  let bypassCheckbox = document.getElementById('panelBypassSecurity');
+  if (!bypassCheckbox) {
+    
+    // Find the persistent checkbox container
+    const persistentContainer = document.querySelector('#panelPersistent').closest('.form-group');
+    
+    // Create new container with same structure as other checkboxes
+    const newContainer = document.createElement('div');
+    newContainer.className = 'form-group';
+    
+    newContainer.innerHTML = `
+      <label class="checkbox-label">
+        <input type="checkbox" id="panelBypassSecurity" class="checkbox-input">
+        <span class="checkbox-custom"></span>
+        <span class="checkbox-text">⚠️ Bypass Security Validation</span>
+      </label>
+    `;
+    
+    // Insert after persistent checkbox
+    persistentContainer.parentNode.insertBefore(newContainer, persistentContainer.nextSibling);
+  }
+  
   panelUrlMatchType.value = 'all';
   panelUrlMatch.value = '';
   panelScriptName.readOnly = false;
@@ -346,7 +403,6 @@ function openNewScript() {
   savePanelBtn.style.display = 'flex';
   editorPanel.classList.add('active');
   
-  // Ensure DOM is ready before toggling sections
   setTimeout(() => {
     toggleUrlMatchSection();
     updateLineNumbers();
@@ -369,6 +425,7 @@ function editScript(script) {
   panelScriptCode.value = script.code;
   panelAutoRun.checked = script.autoRun || false;
   panelPersistent.checked = script.persistent || false;
+  panelBypassSecurity.checked = script.bypassSecurity || false;
   panelUrlMatchType.value = script.urlMatchType || 'all';
   panelUrlMatch.value = script.urlMatch || '';
   panelScriptName.readOnly = false;
@@ -422,9 +479,13 @@ async function saveScriptFromPanel() {
   // Validate JavaScript code
   const codeValidation = validateJavaScript(code);
   if (!codeValidation.valid) {
-    showStatus(`Invalid code: ${codeValidation.reason}`, 'error');
+    showStatus(`${codeValidation.reason}. Add a bypass checkbox if needed.`, 'error');
     panelScriptCode.focus();
     return;
+  }
+  
+  if (codeValidation.bypassed) {
+    showStatus('⚠️ Security validation bypassed - use at your own risk!', 'warning');
   }
 
   // Validate URL matching if auto-run is enabled
@@ -441,19 +502,16 @@ async function saveScriptFromPanel() {
     }
   }
 
-  // Directory selection is optional - scripts will be saved to chrome storage
-
   try {
     let script;
     const allScripts = await FILE_MANAGER.loadAllScripts();
 
     if (editingScriptId) {
-      // Update existing script
       const existing = allScripts.find(s => s.id === editingScriptId);
       script = {
         ...existing,
-        name: name, // Already validated
-        code: code, // Already validated
+        name: name,
+        code: code,
         autoRun,
         persistent,
         urlMatchType: autoRun ? urlMatchType : undefined,
@@ -461,11 +519,10 @@ async function saveScriptFromPanel() {
         updatedAt: new Date().toISOString()
       };
     } else {
-      // Create new script
       script = {
         id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-        name: name, // Already validated
-        code: code, // Already validated
+        name: name,
+        code: code,
         autoRun,
         persistent,
         urlMatchType: autoRun ? urlMatchType : undefined,
@@ -476,10 +533,8 @@ async function saveScriptFromPanel() {
     }
 
     await FILE_MANAGER.saveScript(script);
-
     showStatus(editingScriptId ? 'Script updated' : 'Script saved', 'success');
 
-    // Close panel after a short delay to show the success message
     setTimeout(() => {
       closePanel();
       loadScripts();
@@ -658,10 +713,18 @@ function validateUrl(url, type) {
 
 // Validate JavaScript code (basic checks)
 function validateJavaScript(code) {
-  if (!code || typeof code !== 'string') return false;
-  if (code.length > 50000) return false; // 50KB limit
+  if (!code || typeof code !== 'string') return { valid: false, reason: 'Code is required' };
+  if (code.length > 50000) return { valid: false, reason: 'Code too large (50KB limit)' };
   
-  // Check for potentially dangerous patterns
+  // Check if bypass security checkbox exists and is checked
+  const bypassCheckbox = document.getElementById('panelBypassSecurity');
+  const shouldBypass = bypassCheckbox ? bypassCheckbox.checked : false;
+  
+  if (shouldBypass) {
+    return { valid: true, bypassed: true };
+  }
+  
+  // Check for potentially dangerous patterns only if not bypassed
   const dangerousPatterns = [
     /eval\s*\(/,
     /Function\s*\(/,

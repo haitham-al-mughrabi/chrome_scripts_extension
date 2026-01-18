@@ -1048,6 +1048,20 @@ body {
   color: #555;
 }
 
+/* Security warning styling */
+.security-warning .label-text {
+  color: #ff5722;
+}
+
+.security-warning .checkbox-custom {
+  border-color: #ff5722;
+}
+
+.security-warning .checkbox-input:checked + .checkbox-custom {
+  background-color: #ff5722;
+  border-color: #ff5722;
+}
+
 /* Auto-run indicator */
 .auto-run-indicator {
   font-size: 12px;
