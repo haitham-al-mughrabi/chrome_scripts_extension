@@ -27,6 +27,7 @@ const savePanelBtn = document.getElementById('savePanelBtn');
 const panelScriptName = document.getElementById('panelScriptName');
 const panelScriptCode = document.getElementById('panelScriptCode');
 const panelAutoRun = document.getElementById('panelAutoRun');
+const panelPersistent = document.getElementById('panelPersistent');
 const panelUrlMatchType = document.getElementById('panelUrlMatchType');
 const panelUrlMatch = document.getElementById('panelUrlMatch');
 const urlMatchSection = document.getElementById('urlMatchSection');
@@ -111,9 +112,7 @@ function removeRunningScript(scriptId) {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
-  await loadRunningScripts(); // Load persistent running state
-  
-  // Get current tab ID
+  // Get current tab ID first
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     currentTabId = tab?.id;
@@ -121,6 +120,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.error('Error getting current tab:', error);
   }
   
+  await loadRunningScripts(); // Load persistent running state
   loadScripts();
   setupEventListeners();
 
@@ -129,6 +129,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Start watching for file changes
   FILE_MANAGER.startWatching(loadScripts);
+  
+  // Listen for storage changes to refresh running state
+  chrome.storage.onChanged.addListener((changes, namespace) => {
+    if (namespace === 'local' && changes.running_scripts_by_tab) {
+      loadRunningScripts().then(() => {
+        displayScripts(); // Refresh UI
+      });
+    }
+  });
 });
 
 // Cleanup when popup closes
@@ -226,6 +235,18 @@ function createScriptItem(script) {
   const updatedDate = new Date(script.updatedAt).toLocaleDateString();
   const isRunning = getCurrentTabRunningScripts().has(script.id);
   const autoRunIcon = script.autoRun ? '<span class="auto-run-indicator" title="Auto-runs on page load">🚀</span>' : '';
+  const persistentIcon = script.persistent ? '<span class="persistent-indicator" title="Re-runs on navigation/reload">🔄</span>' : '';
+
+  // Add status classes for border colors
+  if (isRunning) {
+    div.classList.add('running');
+  } else if (script.autoRun && script.persistent) {
+    div.classList.add('auto-run', 'persistent');
+  } else if (script.autoRun) {
+    div.classList.add('auto-run');
+  } else if (script.persistent) {
+    div.classList.add('persistent');
+  }
 
   div.innerHTML = `
     <div class="script-info">
@@ -233,11 +254,15 @@ function createScriptItem(script) {
         <div class="script-name">
           ${isRunning ? '<span class="running-indicator">⚡</span>' : ''}
           ${autoRunIcon}
+          ${persistentIcon}
           ${escapeHtml(script.name)}
         </div>
         <div class="script-actions">
-          <span class="action-icon run-icon ${isRunning ? 'disabled' : ''}" data-id="${script.id}" title="${isRunning ? 'Script Running...' : 'Run Script'}">
+          <span class="action-icon run-icon ${isRunning ? 'disabled' : ''}" data-id="${script.id}" title="${isRunning ? 'Script Executed on this tab - Right-click to reset' : 'Run Script'}">
             ${isRunning ? '⚡' : '▶️'}
+          </span>
+          <span class="action-icon persistent-toggle ${script.persistent ? 'active' : ''}" data-id="${script.id}" title="${script.persistent ? 'Persistent: ON - Click to disable' : 'Persistent: OFF - Click to enable'}">
+            🔄
           </span>
           <span class="action-icon edit-icon" data-id="${script.id}" title="Edit Script">✏️</span>
           <span class="action-icon delete-icon" data-id="${script.id}" title="Delete Script">🗑️</span>
@@ -267,7 +292,35 @@ function createScriptItem(script) {
       runIcon.classList.remove('disabled');
       runIcon.innerHTML = '▶️';
       runIcon.title = 'Run Script';
-      showStatus('Script reset - can run again', 'success');
+      showStatus('Script reset for this tab', 'success');
+    }
+  });
+  
+  // Add persistent toggle functionality
+  const persistentToggle = div.querySelector('.persistent-toggle');
+  persistentToggle.addEventListener('click', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Toggle persistent state
+    script.persistent = !script.persistent;
+    
+    // Update visual state
+    if (script.persistent) {
+      persistentToggle.classList.add('active');
+      persistentToggle.title = 'Persistent: ON - Click to disable';
+    } else {
+      persistentToggle.classList.remove('active');
+      persistentToggle.title = 'Persistent: OFF - Click to enable';
+    }
+    
+    // Save to storage
+    try {
+      await FILE_MANAGER.saveScript(script);
+      showStatus(`Persistent ${script.persistent ? 'enabled' : 'disabled'} for "${script.name}"`, 'success');
+    } catch (error) {
+      showStatus('Failed to update script', 'error');
+      console.error(error);
     }
   });
   
@@ -285,6 +338,7 @@ function openNewScript() {
   panelScriptName.value = '';
   panelScriptCode.value = '';
   panelAutoRun.checked = false;
+  panelPersistent.checked = false;
   panelUrlMatchType.value = 'all';
   panelUrlMatch.value = '';
   panelScriptName.readOnly = false;
@@ -314,6 +368,7 @@ function editScript(script) {
   panelScriptName.value = script.name;
   panelScriptCode.value = script.code;
   panelAutoRun.checked = script.autoRun || false;
+  panelPersistent.checked = script.persistent || false;
   panelUrlMatchType.value = script.urlMatchType || 'all';
   panelUrlMatch.value = script.urlMatch || '';
   panelScriptName.readOnly = false;
@@ -353,6 +408,7 @@ async function saveScriptFromPanel() {
   const name = panelScriptName.value.trim();
   const code = panelScriptCode.value.trim();
   const autoRun = panelAutoRun.checked;
+  const persistent = panelPersistent.checked;
   const urlMatchType = panelUrlMatchType.value;
   const urlMatch = panelUrlMatch.value.trim();
 
@@ -399,6 +455,7 @@ async function saveScriptFromPanel() {
         name: name, // Already validated
         code: code, // Already validated
         autoRun,
+        persistent,
         urlMatchType: autoRun ? urlMatchType : undefined,
         urlMatch: autoRun && urlMatchType !== 'all' ? urlMatch : undefined,
         updatedAt: new Date().toISOString()
@@ -410,6 +467,7 @@ async function saveScriptFromPanel() {
         name: name, // Already validated
         code: code, // Already validated
         autoRun,
+        persistent,
         urlMatchType: autoRun ? urlMatchType : undefined,
         urlMatch: autoRun && urlMatchType !== 'all' ? urlMatch : undefined,
         createdAt: new Date().toISOString(),

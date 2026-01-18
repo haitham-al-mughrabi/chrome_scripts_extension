@@ -177,7 +177,23 @@ body {
   padding: 12px;
   margin: 6px 0;
   transition: all 0.2s ease;
-  border-left: 4px solid #667eea;
+  border-left: 4px solid #e9ecef;
+}
+
+.script-item.running {
+  border-left-color: #ff9800;
+}
+
+.script-item.auto-run {
+  border-left-color: #4caf50;
+}
+
+.script-item.persistent {
+  border-left-color: #2196f3;
+}
+
+.script-item.auto-run.persistent {
+  border-left-color: #9c27b0;
 }
 
 .script-item:hover {
@@ -268,6 +284,21 @@ body {
 
 .delete-icon:hover {
   background: rgba(244, 67, 54, 0.1);
+}
+
+.persistent-toggle {
+  opacity: 0.4;
+  transition: all 0.2s ease;
+}
+
+.persistent-toggle.active {
+  opacity: 1;
+  color: #2196f3;
+}
+
+.persistent-toggle:hover {
+  background: rgba(33, 150, 243, 0.1);
+  opacity: 1;
 }
 
 .script-meta {
@@ -724,6 +755,13 @@ body {
 }
 /* Auto-run indicator */
 .auto-run-indicator {
+  font-size: 12px;
+  margin-right: 6px;
+  opacity: 0.8;
+}
+
+/* Persistent indicator */
+.persistent-indicator {
   font-size: 12px;
   margin-right: 6px;
   opacity: 0.8;

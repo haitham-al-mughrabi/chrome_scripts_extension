@@ -21,7 +21,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   
   if (request.action === 'executeAutoRunScripts') {
     // Handle auto-run scripts execution from content script
-    executeAutoRunScripts(sender.tab.id)
+    executeAutoRunScripts(sender.tab.id, request.url)
+      .then(() => sendResponse({ success: true }))
+      .catch((error) => sendResponse({ success: false, error: error.message }));
+    return true; // Keep message channel open for async response
+  }
+  
+  if (request.action === 'executePersistentScripts') {
+    // Handle persistent scripts execution on navigation
+    executePersistentScripts(sender.tab.id, request.url)
+      .then(() => sendResponse({ success: true }))
+      .catch((error) => sendResponse({ success: false, error: error.message }));
+    return true; // Keep message channel open for async response
+  }
+  
+  if (request.action === 'clearRunningState') {
+    // Clear running state for tab on page reload
+    clearRunningStateForTab(sender.tab.id)
       .then(() => sendResponse({ success: true }))
       .catch((error) => sendResponse({ success: false, error: error.message }));
     return true; // Keep message channel open for async response
@@ -48,14 +64,14 @@ async function executeScriptInTab(tabId, code) {
 }
 
 // Execute auto-run scripts in a specific tab
-async function executeAutoRunScripts(tabId) {
+async function executeAutoRunScripts(tabId, url) {
   try {
     // Rate limiting: max 10 scripts per page load
     const MAX_SCRIPTS_PER_PAGE = 10;
     
     // Get current tab URL
     const tab = await chrome.tabs.get(tabId);
-    const currentUrl = tab.url;
+    const currentUrl = url || tab.url;
     
     // Skip chrome:// and extension pages for security
     if (currentUrl.startsWith('chrome://') || currentUrl.startsWith('chrome-extension://')) {
@@ -64,12 +80,24 @@ async function executeAutoRunScripts(tabId) {
     
     const data = await chrome.storage.local.get('js_scripts');
     const scripts = data.js_scripts || [];
+    
+    // Get auto-run scripts (run once on page load)
     const autoRunScripts = scripts.filter(script => {
       if (!script.autoRun) return false;
       return shouldRunOnUrl(script, currentUrl);
-    }).slice(0, MAX_SCRIPTS_PER_PAGE); // Limit number of scripts
+    });
     
-    for (const script of autoRunScripts) {
+    // Get persistent scripts (always run on page load, regardless of running state)
+    const persistentScripts = scripts.filter(script => {
+      if (!script.persistent) return false;
+      return shouldRunOnUrl(script, currentUrl);
+    });
+    
+    // Combine and limit
+    const allScriptsToRun = [...autoRunScripts, ...persistentScripts]
+      .slice(0, MAX_SCRIPTS_PER_PAGE);
+    
+    for (const script of allScriptsToRun) {
       try {
         // Additional validation before execution
         if (!script.code || typeof script.code !== 'string') continue;
@@ -86,11 +114,65 @@ async function executeAutoRunScripts(tabId) {
           args: [script.code]
         });
       } catch (error) {
-        console.error(`Error running auto-run script "${script.name}":`, error);
+        console.error(`Error running script "${script.name}":`, error);
       }
     }
   } catch (error) {
     console.error('Error executing auto-run scripts:', error);
+    throw error;
+  }
+}
+
+// Execute persistent scripts in a specific tab (only if not currently running)
+async function executePersistentScripts(tabId, url) {
+  try {
+    // Rate limiting: max 10 scripts per navigation
+    const MAX_SCRIPTS_PER_PAGE = 10;
+    
+    // Get current tab URL
+    const tab = await chrome.tabs.get(tabId);
+    const currentUrl = url || tab.url;
+    
+    // Skip chrome:// and extension pages for security
+    if (currentUrl.startsWith('chrome://') || currentUrl.startsWith('chrome-extension://')) {
+      return;
+    }
+    
+    // Get running scripts for this tab
+    const runningData = await chrome.storage.local.get('running_scripts_by_tab');
+    const runningByTab = runningData.running_scripts_by_tab || {};
+    const runningScripts = new Set(runningByTab[tabId] || []);
+    
+    const data = await chrome.storage.local.get('js_scripts');
+    const scripts = data.js_scripts || [];
+    const persistentScripts = scripts.filter(script => {
+      if (!script.persistent) return false;
+      if (runningScripts.has(script.id)) return false; // Don't re-run if already running
+      return shouldRunOnUrl(script, currentUrl);
+    }).slice(0, MAX_SCRIPTS_PER_PAGE); // Limit number of scripts
+    
+    for (const script of persistentScripts) {
+      try {
+        // Additional validation before execution
+        if (!script.code || typeof script.code !== 'string') continue;
+        if (script.code.length > 50000) continue; // 50KB limit
+        
+        await chrome.scripting.executeScript({
+          target: { tabId: tabId },
+          world: 'MAIN',
+          func: (scriptCode) => {
+            // Execute in main world context to bypass CSP
+            const fn = new Function(scriptCode);
+            fn();
+          },
+          args: [script.code]
+        });
+      } catch (error) {
+        console.error(`Error running persistent script "${script.name}":`, error);
+      }
+    }
+  } catch (error) {
+    console.error('Error executing persistent scripts:', error);
     throw error;
   }
 }
@@ -124,5 +206,22 @@ function shouldRunOnUrl(script, url) {
       }
     default:
       return false;
+  }
+}
+
+// Clear running state for a specific tab
+async function clearRunningStateForTab(tabId) {
+  try {
+    const data = await chrome.storage.local.get('running_scripts_by_tab');
+    const runningByTab = data.running_scripts_by_tab || {};
+    
+    // Remove this tab's running scripts
+    delete runningByTab[tabId];
+    
+    await chrome.storage.local.set({ 
+      running_scripts_by_tab: runningByTab 
+    });
+  } catch (error) {
+    console.error('Error clearing running state for tab:', error);
   }
 }
