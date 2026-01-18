@@ -65,33 +65,33 @@ const FILE_MANAGER = {
     }
   },
 
-  // Save a script to the selected directory
+  // Save a script to the selected directory (or just chrome storage if no directory)
   async saveScript(script) {
     try {
-      if (!this.directoryHandle) {
-        throw new Error('No directory selected. Please select a directory first.');
-      }
-
-      const filename = this.sanitizeFilename(script.name) + '.json';
-      const jsonContent = JSON.stringify(script, null, 2);
-
-      // Request permission if needed
-      const permission = await this.directoryHandle.queryPermission({ mode: 'readwrite' });
-      if (permission !== 'granted') {
-        const newPermission = await this.directoryHandle.requestPermission({ mode: 'readwrite' });
-        if (newPermission !== 'granted') {
-          throw new Error('Permission denied to write to directory');
-        }
-      }
-
-      // Create/update the file in the selected directory
-      const fileHandle = await this.directoryHandle.getFileHandle(filename, { create: true });
-      const writable = await fileHandle.createWritable();
-      await writable.write(jsonContent);
-      await writable.close();
-
-      // Also save to chrome storage for quick access
+      // Always save to chrome storage for quick access
       await this.saveToStorage(script);
+
+      // If directory is selected, also save to file system
+      if (this.directoryHandle) {
+        const filename = this.sanitizeFilename(script.name) + '.json';
+        const jsonContent = JSON.stringify(script, null, 2);
+
+        // Request permission if needed
+        const permission = await this.directoryHandle.queryPermission({ mode: 'readwrite' });
+        if (permission !== 'granted') {
+          const newPermission = await this.directoryHandle.requestPermission({ mode: 'readwrite' });
+          if (newPermission !== 'granted') {
+            console.warn('Permission denied to write to directory, saving to storage only');
+            return true;
+          }
+        }
+
+        // Create/update the file in the selected directory
+        const fileHandle = await this.directoryHandle.getFileHandle(filename, { create: true });
+        const writable = await fileHandle.createWritable();
+        await writable.write(jsonContent);
+        await writable.close();
+      }
 
       return true;
     } catch (error) {

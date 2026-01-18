@@ -227,11 +227,7 @@ async function saveScriptFromPanel() {
     return;
   }
 
-  // Check if directory is selected
-  if (!FILE_MANAGER.hasDirectorySelected()) {
-    showStatus('Please select a directory in Manage All first', 'error');
-    return;
-  }
+  // Directory selection is optional - scripts will be saved to chrome storage
 
   try {
     let script;
