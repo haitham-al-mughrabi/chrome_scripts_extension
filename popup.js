@@ -158,26 +158,28 @@ function createScriptItem(script) {
 
   div.innerHTML = `
     <div class="script-info">
-      <div class="script-name">
-        ${isRunning ? '<span class="running-indicator">⚡</span>' : ''}
-        ${autoRunIcon}
-        ${escapeHtml(script.name)}
+      <div class="script-header">
+        <div class="script-name">
+          ${isRunning ? '<span class="running-indicator">⚡</span>' : ''}
+          ${autoRunIcon}
+          ${escapeHtml(script.name)}
+        </div>
+        <div class="script-actions">
+          <span class="action-icon run-icon" data-id="${script.id}" title="Run Script" ${isRunning ? 'disabled' : ''}>
+            ${isRunning ? '⚡' : '▶️'}
+          </span>
+          <span class="action-icon edit-icon" data-id="${script.id}" title="Edit Script">✏️</span>
+          <span class="action-icon delete-icon" data-id="${script.id}" title="Delete Script">🗑️</span>
+        </div>
       </div>
-      <div class="script-meta">Updated: ${updatedDate}</div>
-    </div>
-    <div class="script-actions">
-      <button class="btn btn-run" data-id="${script.id}" ${isRunning ? 'disabled' : ''}>
-        ${isRunning ? 'Running...' : 'Run'}
-      </button>
-      <button class="btn btn-edit" data-id="${script.id}">Edit</button>
-      <button class="btn btn-delete" data-id="${script.id}">Delete</button>
+      <div class="script-meta">${updatedDate}</div>
     </div>
   `;
 
   // Add event listeners
-  div.querySelector('.btn-run').addEventListener('click', () => runScript(script));
-  div.querySelector('.btn-edit').addEventListener('click', () => editScript(script));
-  div.querySelector('.btn-delete').addEventListener('click', () => deleteScript(script.id));
+  div.querySelector('.run-icon').addEventListener('click', () => !isRunning && runScript(script));
+  div.querySelector('.edit-icon').addEventListener('click', () => editScript(script));
+  div.querySelector('.delete-icon').addEventListener('click', () => deleteScript(script.id));
 
   return div;
 }

@@ -173,35 +173,93 @@ body {
 .script-item {
   background: white;
   border: 2px solid #e9ecef;
-  border-radius: 12px;
-  padding: 14px;
-  margin: 8px 0;
-  transition: all 0.3s ease;
-  cursor: pointer;
+  border-radius: 8px;
+  padding: 12px;
+  margin: 6px 0;
+  transition: all 0.2s ease;
+  border-left: 4px solid #667eea;
 }
 
 .script-item:hover {
   border-color: #667eea;
   box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+  transform: translateY(-1px);
 }
 
 .script-info {
-  flex: 1;
-  min-width: 0;
-  margin-bottom: 10px;
+  width: 100%;
+}
+
+.script-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
 }
 
 .script-name {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   color: #212529;
-  margin-bottom: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   display: flex;
   align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.script-actions {
+  display: flex;
   gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.action-icon {
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-icon:hover {
+  background: rgba(102, 126, 234, 0.1);
+  transform: scale(1.1);
+}
+
+.action-icon[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.action-icon[disabled]:hover {
+  background: none;
+  transform: none;
+}
+
+.run-icon:hover {
+  background: rgba(76, 175, 80, 0.1);
+}
+
+.edit-icon:hover {
+  background: rgba(255, 193, 7, 0.1);
+}
+
+.delete-icon:hover {
+  background: rgba(244, 67, 54, 0.1);
+}
+
+.script-meta {
+  font-size: 11px;
+  color: #6c757d;
+  margin-top: 2px;
 }
 
 .running-indicator {
@@ -229,48 +287,6 @@ body {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
-}
-
-.btn {
-  padding: 6px 12px;
-  border: none;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  flex: 1;
-  min-width: 60px;
-}
-
-.btn-run {
-  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-  color: white;
-}
-
-.btn-run:hover {
-  transform: scale(1.05);
-  box-shadow: 0 2px 8px rgba(79, 172, 254, 0.4);
-}
-
-.btn-edit {
-  background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-  color: white;
-}
-
-.btn-edit:hover {
-  transform: scale(1.05);
-  box-shadow: 0 2px 8px rgba(250, 112, 154, 0.4);
-}
-
-.btn-delete {
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-  color: white;
-}
-
-.btn-delete:hover {
-  transform: scale(1.05);
-  box-shadow: 0 2px 8px rgba(245, 87, 108, 0.4);
 }
 
 /* Empty State */
