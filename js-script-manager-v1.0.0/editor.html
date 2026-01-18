@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Script Editor - JS Script Manager</title>
+  <link rel="stylesheet" href="editor.css">
+</head>
+<body>
+  <div class="editor-container">
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+      <div class="nav-content">
+        <div class="nav-left">
+          <span class="nav-icon">⚡</span>
+          <h1 class="nav-title">Script Manager</h1>
+          <span class="nav-page">/ <span id="editorMode">Editor</span></span>
+        </div>
+        <div class="nav-right">
+          <button id="cancelBtn" class="nav-btn secondary">
+            <span>✕</span>
+            <span>Cancel</span>
+          </button>
+          <button id="saveBtn" class="nav-btn primary">
+            <span>💾</span>
+            <span>Save Script</span>
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main Editor -->
+    <main class="editor-main">
+      <div class="editor-content">
+        <!-- Script Name -->
+        <div class="form-group">
+          <label for="scriptName" class="form-label">
+            <span class="label-icon">📝</span>
+            Script Name
+          </label>
+          <input
+            type="text"
+            id="scriptName"
+            class="form-input"
+            placeholder="Enter a descriptive name for your script..."
+            autofocus
+          >
+        </div>
+
+        <!-- Code Editor -->
+        <div class="form-group code-group">
+          <label for="scriptCode" class="form-label">
+            <span class="label-icon">💻</span>
+            JavaScript Code
+          </label>
+          <div class="code-editor-wrapper">
+            <textarea
+              id="scriptCode"
+              class="code-editor"
+              placeholder="// Enter your JavaScript code here...&#10;// Example:&#10;console.log('Hello World!');&#10;document.body.style.backgroundColor = '#f0f0f0';"
+              spellcheck="false"
+            ></textarea>
+          </div>
+        </div>
+
+        <!-- Messages -->
+        <div id="errorMessage" class="message-banner error" style="display: none;"></div>
+        <div id="successMessage" class="message-banner success" style="display: none;"></div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <p>Developed by Haitham Al Mughrabi, all rights reserved ❤️ <span id="currentYear"></span></p>
+    </footer>
+  </div>
+
+  <script src="fileManager.js"></script>
+  <script src="editor.js"></script>
+</body>
+</html>

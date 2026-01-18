@@ -1,0 +1,43 @@
+// Content script to auto-run scripts on page load and handle persistent scripts
+
+(async function() {
+  try {
+    // Clear running state for this tab on page load (since JS execution stops on reload)
+    await chrome.runtime.sendMessage({ 
+      action: 'clearRunningState',
+      tabId: null // Will be set by background script
+    });
+    
+    // Send message to background script to execute auto-run and persistent scripts
+    await chrome.runtime.sendMessage({ 
+      action: 'executeAutoRunScripts',
+      url: window.location.href 
+    });
+  } catch (error) {
+    console.error('Error requesting auto-run scripts:', error);
+  }
+})();
+
+// Listen for navigation changes to re-run persistent scripts
+let lastUrl = window.location.href;
+
+// Check for URL changes (for SPAs)
+const observer = new MutationObserver(() => {
+  if (window.location.href !== lastUrl) {
+    lastUrl = window.location.href;
+    
+    // Re-run persistent scripts on navigation
+    setTimeout(async () => {
+      try {
+        await chrome.runtime.sendMessage({ 
+          action: 'executePersistentScripts',
+          url: window.location.href 
+        });
+      } catch (error) {
+        console.error('Error requesting persistent scripts:', error);
+      }
+    }, 100); // Small delay to let page settle
+  }
+});
+
+observer.observe(document, { subtree: true, childList: true });

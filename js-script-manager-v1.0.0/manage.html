@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage Scripts - JS Script Manager</title>
+  <link rel="stylesheet" href="manage.css">
+</head>
+<body>
+  <div class="manage-container">
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+      <div class="nav-content">
+        <div class="nav-left">
+          <span class="nav-icon">⚡</span>
+          <h1 class="nav-title">Script Manager</h1>
+          <span class="nav-page">/ Manage</span>
+        </div>
+        <div class="nav-right">
+          <span class="script-count-badge" id="scriptCount">0 scripts</span>
+          <button id="importBtn" class="nav-btn secondary">
+            <span>📥</span>
+            <span>Import</span>
+          </button>
+          <button id="exportBtn" class="nav-btn secondary">
+            <span>📤</span>
+            <span>Export All</span>
+          </button>
+          <button id="settingsBtn" class="nav-btn secondary">
+            <span>⚙️</span>
+            <span>Settings</span>
+          </button>
+          <button id="newScriptBtn" class="nav-btn primary">
+            <span>➕</span>
+            <span>New Script</span>
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Search Bar -->
+      <div class="search-section">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="searchInput" placeholder="Search scripts by name or code content...">
+        </div>
+      </div>
+
+      <!-- Scripts Grid -->
+      <div id="scriptsContainer" class="scripts-grid">
+        <!-- Scripts will be loaded here -->
+      </div>
+
+      <!-- Pagination -->
+      <div id="pagination" class="pagination" style="display: none;">
+        <button id="prevPage" class="page-btn" disabled>
+          <span>←</span>
+          <span>Previous</span>
+        </button>
+        <div class="page-info">
+          <span>Page <span id="currentPage">1</span> of <span id="totalPages">1</span></span>
+        </div>
+        <button id="nextPage" class="page-btn">
+          <span>Next</span>
+          <span>→</span>
+        </button>
+      </div>
+
+      <!-- Empty State -->
+      <div id="emptyState" class="empty-state" style="display: none;">
+        <div class="empty-icon">📝</div>
+        <h2>No Scripts Yet</h2>
+        <p>Create your first JavaScript script to automate your workflows</p>
+        <button id="emptyNewScriptBtn" class="empty-btn">
+          <span>➕</span>
+          <span>Create Your First Script</span>
+        </button>
+      </div>
+    </main>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="modal" style="display: none;">
+      <div class="modal-overlay"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>🗑 Delete Script</h2>
+        </div>
+        <div class="modal-body">
+          <p>Are you sure you want to delete <strong id="deleteScriptName"></strong>?</p>
+          <p class="warning-text">⚠️ This action cannot be undone.</p>
+        </div>
+        <div class="modal-footer">
+          <button id="cancelDeleteBtn" class="modal-btn secondary">Cancel</button>
+          <button id="confirmDeleteBtn" class="modal-btn danger">Delete Forever</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal" style="display: none;">
+      <div class="modal-overlay"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>⚙️ Settings</h2>
+        </div>
+        <div class="modal-body">
+          <div class="settings-section">
+            <label class="settings-label">Save Location</label>
+            <p class="settings-description">Choose where to save your script files.</p>
+
+            <div class="save-option">
+              <input type="radio" id="askEachTime" name="saveMode" value="ask" checked>
+              <label for="askEachTime">
+                <strong>Ask me each time</strong>
+                <span class="option-desc">Show folder picker dialog when saving</span>
+              </label>
+            </div>
+
+            <div class="save-option">
+              <input type="radio" id="autoSave" name="saveMode" value="auto">
+              <label for="autoSave">
+                <strong>Auto-save to folder</strong>
+                <span class="option-desc">Save automatically to a specific folder</span>
+              </label>
+            </div>
+
+            <div id="folderPickerSection" class="folder-picker-section" style="display: none;">
+              <div class="settings-control">
+                <input type="text" id="saveLocationInput" class="settings-input" placeholder="No folder selected" readonly>
+                <button id="pickFolderBtn" class="settings-btn">📁 Browse Folder</button>
+              </div>
+              <p class="settings-note">💡 Select a folder - scripts will be saved with this folder name in your Downloads directory</p>
+            </div>
+
+            <div class="settings-control" style="margin-top: 20px;">
+              <button id="saveSaveLocationBtn" class="modal-btn primary" style="width: 100%;">Save Settings</button>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="closeSettingsBtn" class="modal-btn secondary">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hidden file input for importing -->
+    <input type="file" id="fileInput" accept=".json" multiple style="display: none;">
+
+    <!-- Hidden directory input for folder picking -->
+    <input type="file" id="folderInput" webkitdirectory directory multiple style="display: none;">
+
+    <!-- Status Toast -->
+    <div id="statusMessage" class="status-toast" style="display: none;"></div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <p>Developed by Haitham Al Mughrabi, all rights reserved ❤️ <span id="currentYear"></span></p>
+    </footer>
+  </div>
+
+  <!-- Editor Side Panel -->
+  <div id="editorPanel" class="editor-panel">
+    <div class="panel-overlay"></div>
+    <div class="panel-content">
+      <!-- Panel Header -->
+      <div class="panel-header">
+        <div class="panel-title">
+          <span class="panel-icon">✨</span>
+          <h2 id="panelTitle">New Script</h2>
+        </div>
+        <button id="closePanelBtn" class="close-btn">✕</button>
+      </div>
+
+      <!-- Panel Body -->
+      <div class="panel-body">
+        <!-- Script Name -->
+        <div class="form-group">
+          <label for="panelScriptName" class="form-label">
+            <span class="label-icon">📝</span>
+            Script Name
+          </label>
+          <input
+            type="text"
+            id="panelScriptName"
+            class="form-input"
+            placeholder="Enter a descriptive name..."
+          >
+        </div>
+
+        <!-- Code Editor -->
+        <div class="form-group">
+          <label for="panelScriptCode" class="form-label">
+            <span class="label-icon">💻</span>
+            JavaScript Code
+          </label>
+          <div class="code-editor-container">
+            <div class="code-editor-header">
+              <span class="code-lang">JavaScript</span>
+              <div class="code-editor-controls">
+                <button type="button" class="code-btn" id="formatCodeBtn" title="Format Code">{ }</button>
+                <button type="button" class="code-btn" id="fullscreenBtn" title="Fullscreen">⛶</button>
+              </div>
+            </div>
+            <div class="code-editor-wrapper">
+              <div class="line-numbers" id="lineNumbers">1</div>
+              <textarea
+                id="panelScriptCode"
+                class="code-editor"
+                placeholder="// Enter your JavaScript code here...&#10;console.log('Hello World!');"
+                spellcheck="false"
+              ></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Auto Run Option -->
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="panelAutoRun" class="checkbox-input">
+            <span class="checkbox-custom"></span>
+            <span class="label-text">
+              <span class="label-icon">🚀</span>
+              Auto-run on page load
+            </span>
+          </label>
+        </div>
+
+        <!-- URL Match Options (shown when auto-run is enabled) -->
+        <div id="urlMatchSection" class="form-group" style="display: none;">
+          <label class="form-label">
+            <span class="label-icon">🌐</span>
+            Run on pages
+          </label>
+          <select id="panelUrlMatchType" class="form-select">
+            <option value="all">All pages</option>
+            <option value="exact">Exact URL</option>
+            <option value="domain">Specific domain</option>
+            <option value="contains">URL contains</option>
+            <option value="pattern">URL pattern</option>
+          </select>
+          <input type="text" id="panelUrlMatch" class="form-input" placeholder="Enter URL, domain, or pattern..." style="display: none; margin-top: 8px;">
+        </div>
+      </div>
+
+      <!-- Panel Footer -->
+      <div class="panel-footer">
+        <button id="cancelPanelBtn" class="footer-btn secondary">Cancel</button>
+        <button id="savePanelBtn" class="footer-btn primary">
+          <span>💾</span>
+          <span>Save Script</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="fileManager.js"></script>
+  <script src="manage.js"></script>
+</body>
+</html>
