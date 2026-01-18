@@ -417,6 +417,10 @@ async function saveScriptFromPanel() {
     return;
   }
 
+  // Check if bypass security checkbox exists and is checked
+  const bypassCheckbox = document.getElementById('panelBypassSecurity');
+  const bypassSecurity = bypassCheckbox ? bypassCheckbox.checked : false;
+
   // Validate JavaScript code (unless bypassed)
   if (!bypassSecurity) {
     const codeValidation = validateJavaScript(code);
