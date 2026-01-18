@@ -50,9 +50,16 @@ async function executeScriptInTab(tabId, code) {
 // Execute auto-run scripts in a specific tab
 async function executeAutoRunScripts(tabId) {
   try {
+    // Get current tab URL
+    const tab = await chrome.tabs.get(tabId);
+    const currentUrl = tab.url;
+    
     const data = await chrome.storage.local.get('js_scripts');
     const scripts = data.js_scripts || [];
-    const autoRunScripts = scripts.filter(script => script.autoRun);
+    const autoRunScripts = scripts.filter(script => {
+      if (!script.autoRun) return false;
+      return shouldRunOnUrl(script, currentUrl);
+    });
     
     for (const script of autoRunScripts) {
       try {
@@ -73,5 +80,37 @@ async function executeAutoRunScripts(tabId) {
   } catch (error) {
     console.error('Error executing auto-run scripts:', error);
     throw error;
+  }
+}
+
+// Check if script should run on given URL
+function shouldRunOnUrl(script, url) {
+  const matchType = script.urlMatchType || 'all';
+  const matchValue = script.urlMatch || '';
+  
+  switch (matchType) {
+    case 'all':
+      return true;
+    case 'exact':
+      return url === matchValue;
+    case 'domain':
+      try {
+        const urlObj = new URL(url);
+        return urlObj.hostname === matchValue || urlObj.hostname.endsWith('.' + matchValue);
+      } catch {
+        return false;
+      }
+    case 'contains':
+      return url.includes(matchValue);
+    case 'pattern':
+      // Convert simple pattern to regex (* becomes .*)
+      const regexPattern = matchValue.replace(/\*/g, '.*');
+      try {
+        return new RegExp('^' + regexPattern + '$').test(url);
+      } catch {
+        return false;
+      }
+    default:
+      return false;
   }
 }

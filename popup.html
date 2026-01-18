@@ -126,6 +126,22 @@
             </span>
           </label>
         </div>
+
+        <!-- URL Match Options (shown when auto-run is enabled) -->
+        <div id="urlMatchSection" class="form-group" style="display: none;">
+          <label class="form-label">
+            <span class="label-icon">🌐</span>
+            Run on pages
+          </label>
+          <select id="panelUrlMatchType" class="form-select">
+            <option value="all">All pages</option>
+            <option value="exact">Exact URL</option>
+            <option value="domain">Specific domain</option>
+            <option value="contains">URL contains</option>
+            <option value="pattern">URL pattern</option>
+          </select>
+          <input type="text" id="panelUrlMatch" class="form-input" placeholder="Enter URL, domain, or pattern..." style="display: none; margin-top: 8px;">
+        </div>
       </div>
 
       <!-- Panel Footer -->

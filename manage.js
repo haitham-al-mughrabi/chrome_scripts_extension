@@ -46,6 +46,9 @@ const savePanelBtn = document.getElementById('savePanelBtn');
 const panelScriptName = document.getElementById('panelScriptName');
 const panelScriptCode = document.getElementById('panelScriptCode');
 const panelAutoRun = document.getElementById('panelAutoRun');
+const panelUrlMatchType = document.getElementById('panelUrlMatchType');
+const panelUrlMatch = document.getElementById('panelUrlMatch');
+const urlMatchSection = document.getElementById('urlMatchSection');
 const panelTitle = document.getElementById('panelTitle');
 
 // State
@@ -110,6 +113,10 @@ function setupEventListeners() {
   closePanelBtn.addEventListener('click', closePanel);
   cancelPanelBtn.addEventListener('click', closePanel);
   savePanelBtn.addEventListener('click', saveScriptFromPanel);
+
+  // Auto-run and URL match listeners
+  panelAutoRun.addEventListener('change', toggleUrlMatchSection);
+  panelUrlMatchType.addEventListener('change', toggleUrlMatchInput);
 
   // Close panel when clicking overlay
   editorPanel.querySelector('.panel-overlay').addEventListener('click', closePanel);
@@ -257,9 +264,13 @@ function openNewScript() {
   panelScriptName.value = '';
   panelScriptCode.value = '';
   panelAutoRun.checked = false;
+  panelUrlMatchType.value = 'all';
+  panelUrlMatch.value = '';
   panelScriptName.readOnly = false;
   panelScriptCode.readOnly = false;
+  panelAutoRun.disabled = false;
   savePanelBtn.style.display = 'flex';
+  toggleUrlMatchSection();
   editorPanel.classList.add('active');
   panelScriptName.focus();
 }
@@ -272,10 +283,15 @@ function viewScript(script) {
   panelScriptName.value = script.name;
   panelScriptCode.value = script.code;
   panelAutoRun.checked = script.autoRun || false;
+  panelUrlMatchType.value = script.urlMatchType || 'all';
+  panelUrlMatch.value = script.urlMatch || '';
   panelScriptName.readOnly = true;
   panelScriptCode.readOnly = true;
   panelAutoRun.disabled = true;
+  panelUrlMatchType.disabled = true;
+  panelUrlMatch.readOnly = true;
   savePanelBtn.style.display = 'none';
+  toggleUrlMatchSection();
   editorPanel.classList.add('active');
 }
 
@@ -287,10 +303,15 @@ function editScript(script) {
   panelScriptName.value = script.name;
   panelScriptCode.value = script.code;
   panelAutoRun.checked = script.autoRun || false;
+  panelUrlMatchType.value = script.urlMatchType || 'all';
+  panelUrlMatch.value = script.urlMatch || '';
   panelScriptName.readOnly = false;
   panelScriptCode.readOnly = false;
   panelAutoRun.disabled = false;
+  panelUrlMatchType.disabled = false;
+  panelUrlMatch.readOnly = false;
   savePanelBtn.style.display = 'flex';
+  toggleUrlMatchSection();
   editorPanel.classList.add('active');
   panelScriptName.focus();
 }
@@ -304,10 +325,15 @@ function closePanel() {
     panelScriptName.value = '';
     panelScriptCode.value = '';
     panelAutoRun.checked = false;
+    panelUrlMatchType.value = 'all';
+    panelUrlMatch.value = '';
     panelScriptName.readOnly = false;
     panelScriptCode.readOnly = false;
     panelAutoRun.disabled = false;
+    panelUrlMatchType.disabled = false;
+    panelUrlMatch.readOnly = false;
     savePanelBtn.style.display = 'flex';
+    toggleUrlMatchSection();
   }, 300); // Wait for animation to complete
 }
 
@@ -316,6 +342,8 @@ async function saveScriptFromPanel() {
   const name = panelScriptName.value.trim();
   const code = panelScriptCode.value.trim();
   const autoRun = panelAutoRun.checked;
+  const urlMatchType = panelUrlMatchType.value;
+  const urlMatch = panelUrlMatch.value.trim();
 
   if (!name) {
     showStatus('Please enter a script name', 'error');
@@ -326,6 +354,12 @@ async function saveScriptFromPanel() {
   if (!code) {
     showStatus('Please enter some code', 'error');
     panelScriptCode.focus();
+    return;
+  }
+
+  if (autoRun && urlMatchType !== 'all' && !urlMatch) {
+    showStatus('Please enter URL match criteria', 'error');
+    panelUrlMatch.focus();
     return;
   }
 
@@ -346,6 +380,8 @@ async function saveScriptFromPanel() {
         name,
         code,
         autoRun,
+        urlMatchType: autoRun ? urlMatchType : undefined,
+        urlMatch: autoRun && urlMatchType !== 'all' ? urlMatch : undefined,
         updatedAt: new Date().toISOString()
       };
     } else {
@@ -355,6 +391,8 @@ async function saveScriptFromPanel() {
         name,
         code,
         autoRun,
+        urlMatchType: autoRun ? urlMatchType : undefined,
+        urlMatch: autoRun && urlMatchType !== 'all' ? urlMatch : undefined,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
@@ -670,3 +708,33 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
     loadScripts();
   }
 });
+// Toggle URL match section visibility
+function toggleUrlMatchSection() {
+  if (panelAutoRun.checked) {
+    urlMatchSection.style.display = 'block';
+    toggleUrlMatchInput();
+  } else {
+    urlMatchSection.style.display = 'none';
+  }
+}
+
+// Toggle URL match input visibility
+function toggleUrlMatchInput() {
+  const type = panelUrlMatchType.value;
+  if (type === 'all') {
+    panelUrlMatch.style.display = 'none';
+    panelUrlMatch.required = false;
+  } else {
+    panelUrlMatch.style.display = 'block';
+    panelUrlMatch.required = true;
+    
+    // Update placeholder based on type
+    const placeholders = {
+      exact: 'https://example.com/page',
+      domain: 'example.com',
+      contains: 'admin',
+      pattern: '*/admin/*'
+    };
+    panelUrlMatch.placeholder = placeholders[type] || '';
+  }
+}
