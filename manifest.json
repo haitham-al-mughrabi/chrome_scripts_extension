@@ -2,7 +2,8 @@
   "manifest_version": 3,
   "name": "JS Script Manager",
   "version": "1.0.0",
-  "description": "Store, manage, and execute JavaScript scripts on any webpage",
+  "description": "Store, manage, and execute JavaScript scripts on any webpage with advanced automation features",
+  "author": "Haitham Al Mughrabi",
   "icons": {
     "16": "icon16.png",
     "48": "icon48.png",
@@ -24,7 +25,8 @@
       "16": "icon16.png",
       "48": "icon48.png",
       "128": "icon128.png"
-    }
+    },
+    "default_title": "JS Script Manager"
   },
   "background": {
     "service_worker": "background.js"
