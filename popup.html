@@ -54,6 +54,15 @@
       </div>
     </div>
 
+    <!-- Pagination -->
+    <div id="pagination" class="pagination" style="display: none;">
+      <button id="prevPage" class="page-btn" disabled>←</button>
+      <span class="page-info">
+        <span id="currentPage">1</span> / <span id="totalPages">1</span>
+      </span>
+      <button id="nextPage" class="page-btn">→</button>
+    </div>
+
     <!-- Status Toast -->
     <div id="statusMessage" class="status-toast" style="display: none;"></div>
 
@@ -118,6 +127,7 @@
     </div>
   </div>
 
+  <script src="fileManager.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

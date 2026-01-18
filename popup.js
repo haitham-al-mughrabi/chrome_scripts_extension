@@ -1,6 +1,9 @@
 // Storage key
 const STORAGE_KEY = 'js_scripts';
 
+// Pagination settings
+const ITEMS_PER_PAGE = 5;
+
 // DOM Elements
 const newScriptBtn = document.getElementById('newScriptBtn');
 const manageScriptsBtn = document.getElementById('manageScriptsBtn');
@@ -8,6 +11,13 @@ const scriptsList = document.getElementById('scriptsList');
 const emptyState = document.getElementById('emptyState');
 const searchInput = document.getElementById('searchInput');
 const scriptCount = document.getElementById('scriptCount');
+
+// Pagination elements
+const pagination = document.getElementById('pagination');
+const prevPageBtn = document.getElementById('prevPage');
+const nextPageBtn = document.getElementById('nextPage');
+const currentPageSpan = document.getElementById('currentPage');
+const totalPagesSpan = document.getElementById('totalPages');
 
 // Editor Panel Elements
 const editorPanel = document.getElementById('editorPanel');
@@ -22,6 +32,15 @@ const panelTitle = document.getElementById('panelTitle');
 let editingScriptId = null;
 let isViewMode = false;
 
+// Pagination state
+let allScripts = [];
+let filteredScripts = [];
+let currentPage = 1;
+let totalPages = 1;
+
+// Running scripts tracking
+let runningScripts = new Set();
+
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
   loadScripts();
@@ -29,6 +48,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Set current year in footer
   document.getElementById('currentYear').textContent = new Date().getFullYear();
+
+  // Start watching for file changes
+  FILE_MANAGER.startWatching(loadScripts);
+});
+
+// Cleanup when popup closes
+window.addEventListener('beforeunload', () => {
+  FILE_MANAGER.stopWatching();
 });
 
 // Reload scripts when popup becomes visible (in case scripts were edited)
@@ -44,6 +71,10 @@ function setupEventListeners() {
   manageScriptsBtn.addEventListener('click', openManagePage);
   searchInput.addEventListener('input', handleSearch);
 
+  // Pagination event listeners
+  prevPageBtn.addEventListener('click', () => changePage(currentPage - 1));
+  nextPageBtn.addEventListener('click', () => changePage(currentPage + 1));
+
   // Panel event listeners
   closePanelBtn.addEventListener('click', closePanel);
   cancelPanelBtn.addEventListener('click', closePanel);
@@ -55,29 +86,47 @@ function setupEventListeners() {
 
 // Load scripts from storage
 async function loadScripts() {
-  const data = await chrome.storage.local.get(STORAGE_KEY);
-  const scripts = data[STORAGE_KEY] || [];
-  displayScripts(scripts);
-  updateScriptCount(scripts.length);
+  allScripts = await FILE_MANAGER.loadAllScripts();
+  filteredScripts = [...allScripts];
+  currentPage = 1;
+  displayScripts();
+  updateScriptCount(allScripts.length);
 }
 
-// Display scripts in the list
-function displayScripts(scripts) {
-  scriptsList.innerHTML = '';
+// Display scripts in the list with pagination
+function displayScripts() {
+  scriptsList.innerHTML = ''; // Safe: clearing container
 
-  if (scripts.length === 0) {
+  if (filteredScripts.length === 0) {
     emptyState.style.display = 'block';
     scriptsList.style.display = 'none';
+    pagination.style.display = 'none';
     return;
   }
 
   emptyState.style.display = 'none';
   scriptsList.style.display = 'block';
 
-  scripts.forEach(script => {
-    const scriptItem = createScriptItem(script);
+  // Calculate pagination
+  totalPages = Math.ceil(filteredScripts.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+
+  // Sort by updated date (newest first)
+  const sortedScripts = [...filteredScripts].sort((a, b) => {
+    return new Date(b.updatedAt) - new Date(a.updatedAt);
+  });
+
+  // Get scripts for current page
+  const pageScripts = sortedScripts.slice(startIndex, endIndex);
+
+  pageScripts.forEach(script => {
+    const scriptItem = createScriptItem(script); // createScriptItem uses escapeHtml for safety
     scriptsList.appendChild(scriptItem);
   });
+
+  // Update pagination UI
+  updatePaginationUI();
 }
 
 // Create script item element
@@ -87,14 +136,20 @@ function createScriptItem(script) {
   div.dataset.id = script.id;
 
   const updatedDate = new Date(script.updatedAt).toLocaleDateString();
+  const isRunning = runningScripts.has(script.id);
 
   div.innerHTML = `
     <div class="script-info">
-      <div class="script-name">${escapeHtml(script.name)}</div>
+      <div class="script-name">
+        ${isRunning ? '<span class="running-indicator">⚡</span>' : ''}
+        ${escapeHtml(script.name)}
+      </div>
       <div class="script-meta">Updated: ${updatedDate}</div>
     </div>
     <div class="script-actions">
-      <button class="btn btn-run" data-id="${script.id}">Run</button>
+      <button class="btn btn-run" data-id="${script.id}" ${isRunning ? 'disabled' : ''}>
+        ${isRunning ? 'Running...' : 'Run'}
+      </button>
       <button class="btn btn-edit" data-id="${script.id}">Edit</button>
       <button class="btn btn-delete" data-id="${script.id}">Delete</button>
     </div>
@@ -172,54 +227,74 @@ async function saveScriptFromPanel() {
     return;
   }
 
-  const data = await chrome.storage.local.get(STORAGE_KEY);
-  const scripts = data[STORAGE_KEY] || [];
+  // Check if directory is selected
+  if (!FILE_MANAGER.hasDirectorySelected()) {
+    showStatus('Please select a directory in Manage All first', 'error');
+    return;
+  }
 
-  if (editingScriptId) {
-    // Update existing script
-    const index = scripts.findIndex(s => s.id === editingScriptId);
-    if (index !== -1) {
-      scripts[index] = {
-        ...scripts[index],
+  try {
+    let script;
+    const allScripts = await FILE_MANAGER.loadAllScripts();
+
+    if (editingScriptId) {
+      // Update existing script
+      const existing = allScripts.find(s => s.id === editingScriptId);
+      script = {
+        ...existing,
         name,
         code,
         updatedAt: new Date().toISOString()
       };
+    } else {
+      // Create new script
+      script = {
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+        name,
+        code,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
     }
-  } else {
-    // Create new script
-    const newScript = {
-      id: Date.now().toString(),
-      name,
-      code,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    scripts.push(newScript);
+
+    await FILE_MANAGER.saveScript(script);
+
+    showStatus(editingScriptId ? 'Script updated' : 'Script saved', 'success');
+
+    // Close panel after a short delay to show the success message
+    setTimeout(() => {
+      closePanel();
+      loadScripts();
+    }, 500);
+  } catch (error) {
+    showStatus('Failed to save script: ' + error.message, 'error');
+    console.error(error);
   }
-
-  await chrome.storage.local.set({ [STORAGE_KEY]: scripts });
-
-  showStatus(editingScriptId ? 'Script updated' : 'Script saved', 'success');
-  closePanel();
-  loadScripts();
 }
 
 // Delete script
 async function deleteScript(id) {
-  const data = await chrome.storage.local.get(STORAGE_KEY);
-  const scripts = data[STORAGE_KEY] || [];
-  const filteredScripts = scripts.filter(s => s.id !== id);
-
-  await chrome.storage.local.set({ [STORAGE_KEY]: filteredScripts });
-
-  loadScripts();
-  showStatus('Script deleted', 'success');
+  try {
+    await FILE_MANAGER.deleteScript(id);
+    loadScripts();
+    showStatus('Script deleted', 'success');
+  } catch (error) {
+    showStatus('Failed to delete script', 'error');
+    console.error(error);
+  }
 }
 
 // Run script
 async function runScript(script) {
+  if (runningScripts.has(script.id)) {
+    return; // Already running
+  }
+
   try {
+    // Mark script as running
+    runningScripts.add(script.id);
+    displayScripts(); // Refresh UI to show running state
+
     // Get current active tab
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
@@ -244,25 +319,31 @@ async function runScript(script) {
   } catch (error) {
     console.error('Error running script:', error);
     showStatus('Failed to execute script', 'error');
+  } finally {
+    // Remove from running scripts after a short delay
+    setTimeout(() => {
+      runningScripts.delete(script.id);
+      displayScripts(); // Refresh UI to remove running state
+    }, 1000);
   }
 }
 
 // Search scripts
 async function handleSearch() {
   const query = searchInput.value.toLowerCase().trim();
-  const data = await chrome.storage.local.get(STORAGE_KEY);
-  const scripts = data[STORAGE_KEY] || [];
 
   if (!query) {
-    displayScripts(scripts);
-    return;
+    filteredScripts = [...allScripts];
+  } else {
+    filteredScripts = allScripts.filter(script =>
+      script.name.toLowerCase().includes(query) ||
+      script.code.toLowerCase().includes(query)
+    );
   }
 
-  const filteredScripts = scripts.filter(script =>
-    script.name.toLowerCase().includes(query)
-  );
-
-  displayScripts(filteredScripts);
+  currentPage = 1;
+  displayScripts();
+  updateScriptCount(filteredScripts.length);
 }
 
 // Update script count badge
@@ -287,4 +368,26 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+// ===== Pagination Functions =====
+
+function updatePaginationUI() {
+  if (totalPages <= 1) {
+    pagination.style.display = 'none';
+    return;
+  }
+
+  pagination.style.display = 'flex';
+  currentPageSpan.textContent = currentPage;
+  totalPagesSpan.textContent = totalPages;
+
+  prevPageBtn.disabled = currentPage === 1;
+  nextPageBtn.disabled = currentPage === totalPages;
+}
+
+function changePage(page) {
+  if (page < 1 || page > totalPages) return;
+  currentPage = page;
+  displayScripts();
 }

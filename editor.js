@@ -52,8 +52,7 @@ function loadScriptFromUrl() {
 // Load existing script for editing
 async function loadExistingScript(scriptId, viewMode = false) {
   try {
-    const data = await chrome.storage.local.get(STORAGE_KEY);
-    const scripts = data[STORAGE_KEY] || [];
+    const scripts = await FILE_MANAGER.loadAllScripts();
     const script = scripts.find(s => s.id === scriptId);
 
     if (script) {
@@ -103,37 +102,34 @@ async function saveScript() {
   }
 
   try {
-    const data = await chrome.storage.local.get(STORAGE_KEY);
-    const scripts = data[STORAGE_KEY] || [];
+    let script;
+    const allScripts = await FILE_MANAGER.loadAllScripts();
 
     if (currentScriptId) {
       // Update existing script
-      const index = scripts.findIndex(s => s.id === currentScriptId);
-      if (index !== -1) {
-        scripts[index] = {
-          ...scripts[index],
-          name,
-          code,
-          updatedAt: Date.now()
-        };
-      }
-    } else {
-      // Create new script
-      const newScript = {
-        id: Date.now().toString(),
+      const existing = allScripts.find(s => s.id === currentScriptId);
+      script = {
+        ...existing,
         name,
         code,
-        createdAt: Date.now(),
-        updatedAt: Date.now()
+        updatedAt: new Date().toISOString()
       };
-      scripts.push(newScript);
-      currentScriptId = newScript.id;
+    } else {
+      // Create new script
+      script = {
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+        name,
+        code,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      currentScriptId = script.id;
     }
 
-    // Save to storage
-    await chrome.storage.local.set({ [STORAGE_KEY]: scripts });
+    // Save using FILE_MANAGER
+    await FILE_MANAGER.saveScript(script);
 
-    showSuccess('Script saved!');
+    showSuccess('Script saved and downloaded!');
 
     // Close the tab after a short delay
     setTimeout(() => {
@@ -142,6 +138,7 @@ async function saveScript() {
 
   } catch (error) {
     showError('Failed to save script');
+    console.error(error);
   }
 }
 

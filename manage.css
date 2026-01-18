@@ -107,6 +107,20 @@ body {
   box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
 }
 
+.nav-btn.secondary {
+  background: white;
+  color: #667eea;
+  border: 2px solid #667eea;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.nav-btn.secondary:hover {
+  background: #667eea;
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
 /* Main Content */
 .main-content {
   flex: 1;
@@ -189,6 +203,21 @@ body {
   margin-bottom: 12px;
   word-break: break-word;
   line-height: 1.4;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.running-indicator {
+  color: #ffd700;
+  animation: flash 1s ease-in-out infinite;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+@keyframes flash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
 }
 
 .script-meta {
@@ -355,6 +384,53 @@ body {
   box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
 }
 
+/* Pagination */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 24px;
+  margin-top: 32px;
+  padding: 24px;
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.page-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.page-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.page-info {
+  font-size: 16px;
+  font-weight: 600;
+  color: #212529;
+  padding: 0 16px;
+}
+
 /* Modal */
 .modal {
   position: fixed;
@@ -471,6 +547,127 @@ body {
   box-shadow: 0 6px 20px rgba(245, 87, 108, 0.4);
 }
 
+/* Settings Modal */
+.settings-section {
+  margin-bottom: 24px;
+}
+
+.settings-section:last-child {
+  margin-bottom: 0;
+}
+
+.settings-label {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  color: #212529;
+  margin-bottom: 8px;
+}
+
+.settings-description {
+  font-size: 14px;
+  color: #6c757d;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.settings-control {
+  display: flex;
+  gap: 12px;
+}
+
+.settings-input {
+  flex: 1;
+  padding: 12px 16px;
+  border: 2px solid #e9ecef;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #495057;
+  background: #f8f9fa;
+}
+
+.settings-btn {
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  white-space: nowrap;
+}
+
+.settings-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.settings-note {
+  font-size: 13px;
+  color: #6c757d;
+  margin-top: 12px;
+  line-height: 1.5;
+}
+
+.save-option {
+  margin: 16px 0;
+  padding: 16px;
+  border: 2px solid #e9ecef;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.save-option:hover {
+  border-color: #667eea;
+  background: #f8f9fa;
+}
+
+.save-option input[type="radio"] {
+  margin-right: 12px;
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+}
+
+.save-option label {
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.save-option label strong {
+  font-size: 15px;
+  color: #212529;
+}
+
+.option-desc {
+  font-size: 13px;
+  color: #6c757d;
+}
+
+.save-option input[type="radio"]:checked + label {
+  color: #667eea;
+}
+
+.save-option:has(input[type="radio"]:checked) {
+  border-color: #667eea;
+  background: rgba(102, 126, 234, 0.05);
+}
+
+.folder-picker-section {
+  margin-top: 16px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 2px dashed #667eea;
+}
+
 /* Status Toast */
 .status-toast {
   position: fixed;
@@ -493,6 +690,11 @@ body {
 
 .status-toast.error {
   background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.status-toast.warning {
+  background: linear-gradient(135deg, #ffeaa7 0%, #fab1a0 100%);
+  color: #2d3436;
 }
 
 @keyframes slideInRight {
