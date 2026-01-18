@@ -18,6 +18,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       .catch((error) => sendResponse({ success: false, error: error.message }));
     return true; // Keep message channel open for async response
   }
+  
+  if (request.action === 'executeAutoRunScripts') {
+    // Handle auto-run scripts execution from content script
+    executeAutoRunScripts(sender.tab.id)
+      .then(() => sendResponse({ success: true }))
+      .catch((error) => sendResponse({ success: false, error: error.message }));
+    return true; // Keep message channel open for async response
+  }
 });
 
 // Execute script in a specific tab
@@ -35,6 +43,35 @@ async function executeScriptInTab(tabId, code) {
     });
   } catch (error) {
     console.error('Error executing script:', error);
+    throw error;
+  }
+}
+
+// Execute auto-run scripts in a specific tab
+async function executeAutoRunScripts(tabId) {
+  try {
+    const data = await chrome.storage.local.get('js_scripts');
+    const scripts = data.js_scripts || [];
+    const autoRunScripts = scripts.filter(script => script.autoRun);
+    
+    for (const script of autoRunScripts) {
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tabId },
+          world: 'MAIN',
+          func: (scriptCode) => {
+            // Execute in main world context to bypass CSP
+            const fn = new Function(scriptCode);
+            fn();
+          },
+          args: [script.code]
+        });
+      } catch (error) {
+        console.error(`Error running auto-run script "${script.name}":`, error);
+      }
+    }
+  } catch (error) {
+    console.error('Error executing auto-run scripts:', error);
     throw error;
   }
 }

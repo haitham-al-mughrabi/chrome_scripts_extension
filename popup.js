@@ -26,6 +26,7 @@ const cancelPanelBtn = document.getElementById('cancelPanelBtn');
 const savePanelBtn = document.getElementById('savePanelBtn');
 const panelScriptName = document.getElementById('panelScriptName');
 const panelScriptCode = document.getElementById('panelScriptCode');
+const panelAutoRun = document.getElementById('panelAutoRun');
 const panelTitle = document.getElementById('panelTitle');
 
 // Panel state
@@ -137,11 +138,13 @@ function createScriptItem(script) {
 
   const updatedDate = new Date(script.updatedAt).toLocaleDateString();
   const isRunning = runningScripts.has(script.id);
+  const autoRunIcon = script.autoRun ? '<span class="auto-run-indicator" title="Auto-runs on page load">🚀</span>' : '';
 
   div.innerHTML = `
     <div class="script-info">
       <div class="script-name">
         ${isRunning ? '<span class="running-indicator">⚡</span>' : ''}
+        ${autoRunIcon}
         ${escapeHtml(script.name)}
       </div>
       <div class="script-meta">Updated: ${updatedDate}</div>
@@ -170,6 +173,7 @@ function openNewScript() {
   panelTitle.textContent = 'New Script';
   panelScriptName.value = '';
   panelScriptCode.value = '';
+  panelAutoRun.checked = false;
   panelScriptName.readOnly = false;
   panelScriptCode.readOnly = false;
   savePanelBtn.style.display = 'flex';
@@ -189,6 +193,7 @@ function editScript(script) {
   panelTitle.textContent = 'Edit Script';
   panelScriptName.value = script.name;
   panelScriptCode.value = script.code;
+  panelAutoRun.checked = script.autoRun || false;
   panelScriptName.readOnly = false;
   panelScriptCode.readOnly = false;
   savePanelBtn.style.display = 'flex';
@@ -204,6 +209,7 @@ function closePanel() {
     isViewMode = false;
     panelScriptName.value = '';
     panelScriptCode.value = '';
+    panelAutoRun.checked = false;
     panelScriptName.readOnly = false;
     panelScriptCode.readOnly = false;
     savePanelBtn.style.display = 'flex';
@@ -214,6 +220,7 @@ function closePanel() {
 async function saveScriptFromPanel() {
   const name = panelScriptName.value.trim();
   const code = panelScriptCode.value.trim();
+  const autoRun = panelAutoRun.checked;
 
   if (!name) {
     showStatus('Please enter a script name', 'error');
@@ -240,6 +247,7 @@ async function saveScriptFromPanel() {
         ...existing,
         name,
         code,
+        autoRun,
         updatedAt: new Date().toISOString()
       };
     } else {
@@ -248,6 +256,7 @@ async function saveScriptFromPanel() {
         id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
         name,
         code,
+        autoRun,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };

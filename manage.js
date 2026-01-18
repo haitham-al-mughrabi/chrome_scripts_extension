@@ -45,6 +45,7 @@ const cancelPanelBtn = document.getElementById('cancelPanelBtn');
 const savePanelBtn = document.getElementById('savePanelBtn');
 const panelScriptName = document.getElementById('panelScriptName');
 const panelScriptCode = document.getElementById('panelScriptCode');
+const panelAutoRun = document.getElementById('panelAutoRun');
 const panelTitle = document.getElementById('panelTitle');
 
 // State
@@ -186,6 +187,7 @@ function createScriptCard(script) {
   const updatedDate = new Date(script.updatedAt).toLocaleDateString();
   const codePreview = script.code.substring(0, 150);
   const isRunning = runningScripts.has(script.id);
+  const autoRunIcon = script.autoRun ? '<span class="auto-run-indicator" title="Auto-runs on page load">🚀</span>' : '';
 
   // Using escapeHtml to prevent XSS
   const safeTitle = escapeHtml(script.name);
@@ -196,6 +198,7 @@ function createScriptCard(script) {
       <div>
         <div class="script-title">
           ${isRunning ? '<span class="running-indicator">⚡</span>' : ''}
+          ${autoRunIcon}
           ${safeTitle}
         </div>
         <div class="script-meta">
@@ -253,6 +256,7 @@ function openNewScript() {
   panelTitle.textContent = 'New Script';
   panelScriptName.value = '';
   panelScriptCode.value = '';
+  panelAutoRun.checked = false;
   panelScriptName.readOnly = false;
   panelScriptCode.readOnly = false;
   savePanelBtn.style.display = 'flex';
@@ -267,8 +271,10 @@ function viewScript(script) {
   panelTitle.textContent = 'View Script';
   panelScriptName.value = script.name;
   panelScriptCode.value = script.code;
+  panelAutoRun.checked = script.autoRun || false;
   panelScriptName.readOnly = true;
   panelScriptCode.readOnly = true;
+  panelAutoRun.disabled = true;
   savePanelBtn.style.display = 'none';
   editorPanel.classList.add('active');
 }
@@ -280,8 +286,10 @@ function editScript(script) {
   panelTitle.textContent = 'Edit Script';
   panelScriptName.value = script.name;
   panelScriptCode.value = script.code;
+  panelAutoRun.checked = script.autoRun || false;
   panelScriptName.readOnly = false;
   panelScriptCode.readOnly = false;
+  panelAutoRun.disabled = false;
   savePanelBtn.style.display = 'flex';
   editorPanel.classList.add('active');
   panelScriptName.focus();
@@ -295,8 +303,10 @@ function closePanel() {
     isViewMode = false;
     panelScriptName.value = '';
     panelScriptCode.value = '';
+    panelAutoRun.checked = false;
     panelScriptName.readOnly = false;
     panelScriptCode.readOnly = false;
+    panelAutoRun.disabled = false;
     savePanelBtn.style.display = 'flex';
   }, 300); // Wait for animation to complete
 }
@@ -305,6 +315,7 @@ function closePanel() {
 async function saveScriptFromPanel() {
   const name = panelScriptName.value.trim();
   const code = panelScriptCode.value.trim();
+  const autoRun = panelAutoRun.checked;
 
   if (!name) {
     showStatus('Please enter a script name', 'error');
@@ -334,6 +345,7 @@ async function saveScriptFromPanel() {
         ...existing,
         name,
         code,
+        autoRun,
         updatedAt: new Date().toISOString()
       };
     } else {
@@ -342,6 +354,7 @@ async function saveScriptFromPanel() {
         id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
         name,
         code,
+        autoRun,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
