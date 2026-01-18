@@ -456,10 +456,14 @@ const FILE_MANAGER = {
 
   // Sanitize filename to be safe for file system
   sanitizeFilename(name) {
+    if (!name || typeof name !== 'string') return 'untitled';
     return name
-      .replace(/[<>:"/\\|?*]/g, '_') // Replace invalid characters
-      .replace(/\s+/g, '_')           // Replace spaces with underscores
-      .substring(0, 200);             // Limit length
+      .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_') // Replace invalid characters
+      .replace(/\s+/g, '_')                    // Replace spaces with underscores
+      .replace(/\.+/g, '.')                    // Replace multiple dots
+      .replace(/^\.+|\.+$/g, '')               // Remove leading/trailing dots
+      .substring(0, 200)                       // Limit length
+      .toLowerCase() || 'untitled';            // Ensure not empty
   }
 };
 

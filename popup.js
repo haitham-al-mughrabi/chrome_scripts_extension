@@ -45,11 +45,82 @@ let filteredScripts = [];
 let currentPage = 1;
 let totalPages = 1;
 
-// Running scripts tracking
-let runningScripts = new Set();
+// Running scripts tracking - per tab
+let runningScripts = new Map(); // Map of tabId -> Set of script IDs
+let currentTabId = null;
+
+// Load running scripts from storage on startup
+async function loadRunningScripts() {
+  try {
+    const data = await chrome.storage.local.get('running_scripts_by_tab');
+    const runningByTab = data.running_scripts_by_tab || {};
+    runningScripts = new Map();
+    
+    // Convert stored object back to Map of Sets
+    for (const [tabId, scriptIds] of Object.entries(runningByTab)) {
+      runningScripts.set(parseInt(tabId), new Set(scriptIds));
+    }
+  } catch (error) {
+    console.error('Error loading running scripts:', error);
+  }
+}
+
+// Save running scripts to storage
+async function saveRunningScripts() {
+  try {
+    const runningByTab = {};
+    // Convert Map of Sets to plain object for storage
+    for (const [tabId, scriptSet] of runningScripts.entries()) {
+      runningByTab[tabId] = Array.from(scriptSet);
+    }
+    
+    await chrome.storage.local.set({ 
+      running_scripts_by_tab: runningByTab 
+    });
+  } catch (error) {
+    console.error('Error saving running scripts:', error);
+  }
+}
+
+// Get current tab's running scripts
+function getCurrentTabRunningScripts() {
+  if (!currentTabId) return new Set();
+  return runningScripts.get(currentTabId) || new Set();
+}
+
+// Add script to current tab's running list
+function addRunningScript(scriptId) {
+  if (!currentTabId) return;
+  if (!runningScripts.has(currentTabId)) {
+    runningScripts.set(currentTabId, new Set());
+  }
+  runningScripts.get(currentTabId).add(scriptId);
+}
+
+// Remove script from current tab's running list
+function removeRunningScript(scriptId) {
+  if (!currentTabId) return;
+  const tabScripts = runningScripts.get(currentTabId);
+  if (tabScripts) {
+    tabScripts.delete(scriptId);
+    if (tabScripts.size === 0) {
+      runningScripts.delete(currentTabId);
+    }
+  }
+}
 
 // Initialize
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadRunningScripts(); // Load persistent running state
+  
+  // Get current tab ID
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    currentTabId = tab?.id;
+  } catch (error) {
+    console.error('Error getting current tab:', error);
+  }
+  
   loadScripts();
   setupEventListeners();
 
@@ -153,7 +224,7 @@ function createScriptItem(script) {
   div.dataset.id = script.id;
 
   const updatedDate = new Date(script.updatedAt).toLocaleDateString();
-  const isRunning = runningScripts.has(script.id);
+  const isRunning = getCurrentTabRunningScripts().has(script.id);
   const autoRunIcon = script.autoRun ? '<span class="auto-run-indicator" title="Auto-runs on page load">🚀</span>' : '';
 
   div.innerHTML = `
@@ -165,7 +236,7 @@ function createScriptItem(script) {
           ${escapeHtml(script.name)}
         </div>
         <div class="script-actions">
-          <span class="action-icon run-icon" data-id="${script.id}" title="Run Script" ${isRunning ? 'disabled' : ''}>
+          <span class="action-icon run-icon ${isRunning ? 'disabled' : ''}" data-id="${script.id}" title="${isRunning ? 'Script Running...' : 'Run Script'}">
             ${isRunning ? '⚡' : '▶️'}
           </span>
           <span class="action-icon edit-icon" data-id="${script.id}" title="Edit Script">✏️</span>
@@ -176,8 +247,30 @@ function createScriptItem(script) {
     </div>
   `;
 
-  // Add event listeners
-  div.querySelector('.run-icon').addEventListener('click', () => !isRunning && runScript(script));
+  // Add event listeners with live state checking
+  const runIcon = div.querySelector('.run-icon');
+  runIcon.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Check running state at click time, not creation time
+    if (!runningScripts.has(script.id)) {
+      runScript(script);
+    }
+  });
+  
+  // Add right-click to reset running state
+  runIcon.addEventListener('contextmenu', async (e) => {
+    e.preventDefault();
+    if (runningScripts.has(script.id)) {
+      runningScripts.delete(script.id);
+      await saveRunningScripts();
+      runIcon.classList.remove('disabled');
+      runIcon.innerHTML = '▶️';
+      runIcon.title = 'Run Script';
+      showStatus('Script reset - can run again', 'success');
+    }
+  });
+  
   div.querySelector('.edit-icon').addEventListener('click', () => editScript(script));
   div.querySelector('.delete-icon').addEventListener('click', () => deleteScript(script.id));
 
@@ -263,22 +356,33 @@ async function saveScriptFromPanel() {
   const urlMatchType = panelUrlMatchType.value;
   const urlMatch = panelUrlMatch.value.trim();
 
-  if (!name) {
-    showStatus('Please enter a script name', 'error');
+  // Validate script name
+  if (!validateScriptName(name)) {
+    showStatus('Invalid script name. Use only safe characters and keep under 100 chars.', 'error');
     panelScriptName.focus();
     return;
   }
 
-  if (!code) {
-    showStatus('Please enter some code', 'error');
+  // Validate JavaScript code
+  const codeValidation = validateJavaScript(code);
+  if (!codeValidation.valid) {
+    showStatus(`Invalid code: ${codeValidation.reason}`, 'error');
     panelScriptCode.focus();
     return;
   }
 
-  if (autoRun && urlMatchType !== 'all' && !urlMatch) {
-    showStatus('Please enter URL match criteria', 'error');
-    panelUrlMatch.focus();
-    return;
+  // Validate URL matching if auto-run is enabled
+  if (autoRun && urlMatchType !== 'all') {
+    if (!urlMatch) {
+      showStatus('Please enter URL match criteria', 'error');
+      panelUrlMatch.focus();
+      return;
+    }
+    if (!validateUrl(urlMatch, urlMatchType)) {
+      showStatus('Invalid URL format for selected match type', 'error');
+      panelUrlMatch.focus();
+      return;
+    }
   }
 
   // Directory selection is optional - scripts will be saved to chrome storage
@@ -292,8 +396,8 @@ async function saveScriptFromPanel() {
       const existing = allScripts.find(s => s.id === editingScriptId);
       script = {
         ...existing,
-        name,
-        code,
+        name: name, // Already validated
+        code: code, // Already validated
         autoRun,
         urlMatchType: autoRun ? urlMatchType : undefined,
         urlMatch: autoRun && urlMatchType !== 'all' ? urlMatch : undefined,
@@ -303,8 +407,8 @@ async function saveScriptFromPanel() {
       // Create new script
       script = {
         id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-        name,
-        code,
+        name: name, // Already validated
+        code: code, // Already validated
         autoRun,
         urlMatchType: autoRun ? urlMatchType : undefined,
         urlMatch: autoRun && urlMatchType !== 'all' ? urlMatch : undefined,
@@ -342,19 +446,35 @@ async function deleteScript(id) {
 
 // Run script
 async function runScript(script) {
-  if (runningScripts.has(script.id)) {
-    return; // Already running
+  if (getCurrentTabRunningScripts().has(script.id)) {
+    return; // Already running on this tab
   }
 
   try {
-    // Mark script as running
-    runningScripts.add(script.id);
-    displayScripts(); // Refresh UI to show running state
+    // Mark script as running on current tab
+    addRunningScript(script.id);
+    await saveRunningScripts(); // Persist to storage
+    
+    // Immediately disable the button permanently
+    const runButton = document.querySelector(`[data-id="${script.id}"].run-icon`);
+    if (runButton) {
+      runButton.classList.add('disabled');
+      runButton.innerHTML = '⚡';
+      runButton.title = 'Script Executed on this tab - Right-click to reset';
+    }
 
     // Get current active tab
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
     if (!tab) {
+      // Only clear on error
+      removeRunningScript(script.id);
+      await saveRunningScripts();
+      if (runButton) {
+        runButton.classList.remove('disabled');
+        runButton.innerHTML = '▶️';
+        runButton.title = 'Run Script';
+      }
       showStatus('No active tab found', 'error');
       return;
     }
@@ -371,17 +491,24 @@ async function runScript(script) {
       args: [script.code]
     });
 
-    showStatus('Script executed', 'success');
+    showStatus('Script executed on this tab', 'success');
+    
   } catch (error) {
     console.error('Error running script:', error);
     showStatus('Failed to execute script', 'error');
-  } finally {
-    // Remove from running scripts after a short delay
-    setTimeout(() => {
-      runningScripts.delete(script.id);
-      displayScripts(); // Refresh UI to remove running state
-    }, 1000);
+    
+    // Only clear on error
+    removeRunningScript(script.id);
+    await saveRunningScripts();
+    const runButton = document.querySelector(`[data-id="${script.id}"].run-icon`);
+    if (runButton) {
+      runButton.classList.remove('disabled');
+      runButton.innerHTML = '▶️';
+      runButton.title = 'Run Script';
+    }
   }
+  
+  // No timeout - script stays "running" on this tab until manually cleared
 }
 
 // Search scripts
@@ -413,10 +540,19 @@ function showStatus(message, type = 'success') {
   statusMessage.textContent = message;
   statusMessage.className = `status-toast ${type}`;
   statusMessage.style.display = 'block';
-
+  
+  // Trigger slide-in animation
   setTimeout(() => {
-    statusMessage.style.display = 'none';
-  }, 3000);
+    statusMessage.classList.add('show');
+  }, 10);
+
+  // Auto-hide after delay
+  setTimeout(() => {
+    statusMessage.classList.remove('show');
+    setTimeout(() => {
+      statusMessage.style.display = 'none';
+    }, 300);
+  }, type === 'error' ? 4000 : 3000); // Show errors longer
 }
 
 // Escape HTML to prevent XSS
@@ -424,6 +560,73 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+// Validate script name
+function validateScriptName(name) {
+  if (!name || typeof name !== 'string') return false;
+  if (name.length > 100) return false;
+  if (name.trim() !== name) return false;
+  // Prevent path traversal and special characters
+  if (/[<>:"/\\|?*\x00-\x1f]/.test(name)) return false;
+  return true;
+}
+
+// Validate URL for auto-run matching
+function validateUrl(url, type) {
+  if (!url || typeof url !== 'string') return false;
+  if (url.length > 500) return false;
+  
+  switch (type) {
+    case 'exact':
+      try {
+        new URL(url);
+        return true;
+      } catch {
+        return false;
+      }
+    case 'domain':
+      // Basic domain validation
+      return /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/.test(url);
+    case 'contains':
+    case 'pattern':
+      // Prevent dangerous patterns
+      if (/[<>"]/.test(url)) return false;
+      return true;
+    default:
+      return false;
+  }
+}
+
+// Validate JavaScript code (basic checks)
+function validateJavaScript(code) {
+  if (!code || typeof code !== 'string') return false;
+  if (code.length > 50000) return false; // 50KB limit
+  
+  // Check for potentially dangerous patterns
+  const dangerousPatterns = [
+    /eval\s*\(/,
+    /Function\s*\(/,
+    /setTimeout\s*\(\s*["'`]/,
+    /setInterval\s*\(\s*["'`]/,
+    /document\.write/,
+    /innerHTML\s*=/,
+    /outerHTML\s*=/,
+    /insertAdjacentHTML/,
+    /execScript/,
+    /javascript:/,
+    /vbscript:/,
+    /data:text\/html/,
+    /srcdoc\s*=/
+  ];
+  
+  for (const pattern of dangerousPatterns) {
+    if (pattern.test(code)) {
+      return { valid: false, reason: 'Code contains potentially dangerous patterns' };
+    }
+  }
+  
+  return { valid: true };
 }
 
 // ===== Pagination Functions =====

@@ -408,22 +408,33 @@ async function saveScriptFromPanel() {
   const urlMatchType = panelUrlMatchType.value;
   const urlMatch = panelUrlMatch.value.trim();
 
-  if (!name) {
-    showStatus('Please enter a script name', 'error');
+  // Validate script name
+  if (!validateScriptName(name)) {
+    showStatus('Invalid script name. Use only safe characters and keep under 100 chars.', 'error');
     panelScriptName.focus();
     return;
   }
 
-  if (!code) {
-    showStatus('Please enter some code', 'error');
+  // Validate JavaScript code
+  const codeValidation = validateJavaScript(code);
+  if (!codeValidation.valid) {
+    showStatus(`Invalid code: ${codeValidation.reason}`, 'error');
     panelScriptCode.focus();
     return;
   }
 
-  if (autoRun && urlMatchType !== 'all' && !urlMatch) {
-    showStatus('Please enter URL match criteria', 'error');
-    panelUrlMatch.focus();
-    return;
+  // Validate URL matching if auto-run is enabled
+  if (autoRun && urlMatchType !== 'all') {
+    if (!urlMatch) {
+      showStatus('Please enter URL match criteria', 'error');
+      panelUrlMatch.focus();
+      return;
+    }
+    if (!validateUrl(urlMatch, urlMatchType)) {
+      showStatus('Invalid URL format for selected match type', 'error');
+      panelUrlMatch.focus();
+      return;
+    }
   }
 
   // Directory selection is optional - scripts will be saved to chrome storage
@@ -561,10 +572,19 @@ function showStatus(message, type = 'success') {
   statusMessage.textContent = message;
   statusMessage.className = `status-toast ${type}`;
   statusMessage.style.display = 'block';
-
+  
+  // Trigger slide-in animation
   setTimeout(() => {
-    statusMessage.style.display = 'none';
-  }, 3000);
+    statusMessage.classList.add('show');
+  }, 10);
+
+  // Auto-hide after delay
+  setTimeout(() => {
+    statusMessage.classList.remove('show');
+    setTimeout(() => {
+      statusMessage.style.display = 'none';
+    }, 300);
+  }, type === 'error' ? 4000 : 3000); // Show errors longer
 }
 
 // Escape HTML to prevent XSS
@@ -572,6 +592,73 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+// Validate script name
+function validateScriptName(name) {
+  if (!name || typeof name !== 'string') return false;
+  if (name.length > 100) return false;
+  if (name.trim() !== name) return false;
+  // Prevent path traversal and special characters
+  if (/[<>:"/\\|?*\x00-\x1f]/.test(name)) return false;
+  return true;
+}
+
+// Validate URL for auto-run matching
+function validateUrl(url, type) {
+  if (!url || typeof url !== 'string') return false;
+  if (url.length > 500) return false;
+  
+  switch (type) {
+    case 'exact':
+      try {
+        new URL(url);
+        return true;
+      } catch {
+        return false;
+      }
+    case 'domain':
+      // Basic domain validation
+      return /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/.test(url);
+    case 'contains':
+    case 'pattern':
+      // Prevent dangerous patterns
+      if (/[<>"]/.test(url)) return false;
+      return true;
+    default:
+      return false;
+  }
+}
+
+// Validate JavaScript code (basic checks)
+function validateJavaScript(code) {
+  if (!code || typeof code !== 'string') return false;
+  if (code.length > 50000) return false; // 50KB limit
+  
+  // Check for potentially dangerous patterns
+  const dangerousPatterns = [
+    /eval\s*\(/,
+    /Function\s*\(/,
+    /setTimeout\s*\(\s*["'`]/,
+    /setInterval\s*\(\s*["'`]/,
+    /document\.write/,
+    /innerHTML\s*=/,
+    /outerHTML\s*=/,
+    /insertAdjacentHTML/,
+    /execScript/,
+    /javascript:/,
+    /vbscript:/,
+    /data:text\/html/,
+    /srcdoc\s*=/
+  ];
+  
+  for (const pattern of dangerousPatterns) {
+    if (pattern.test(code)) {
+      return { valid: false, reason: 'Code contains potentially dangerous patterns' };
+    }
+  }
+  
+  return { valid: true };
 }
 
 // ===== Pagination Functions =====

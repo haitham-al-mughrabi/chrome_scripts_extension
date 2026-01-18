@@ -50,19 +50,31 @@ async function executeScriptInTab(tabId, code) {
 // Execute auto-run scripts in a specific tab
 async function executeAutoRunScripts(tabId) {
   try {
+    // Rate limiting: max 10 scripts per page load
+    const MAX_SCRIPTS_PER_PAGE = 10;
+    
     // Get current tab URL
     const tab = await chrome.tabs.get(tabId);
     const currentUrl = tab.url;
+    
+    // Skip chrome:// and extension pages for security
+    if (currentUrl.startsWith('chrome://') || currentUrl.startsWith('chrome-extension://')) {
+      return;
+    }
     
     const data = await chrome.storage.local.get('js_scripts');
     const scripts = data.js_scripts || [];
     const autoRunScripts = scripts.filter(script => {
       if (!script.autoRun) return false;
       return shouldRunOnUrl(script, currentUrl);
-    });
+    }).slice(0, MAX_SCRIPTS_PER_PAGE); // Limit number of scripts
     
     for (const script of autoRunScripts) {
       try {
+        // Additional validation before execution
+        if (!script.code || typeof script.code !== 'string') continue;
+        if (script.code.length > 50000) continue; // 50KB limit
+        
         await chrome.scripting.executeScript({
           target: { tabId: tabId },
           world: 'MAIN',

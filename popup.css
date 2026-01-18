@@ -234,18 +234,32 @@ body {
   transform: scale(1.1);
 }
 
-.action-icon[disabled] {
+.action-icon[disabled],
+.action-icon.disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  pointer-events: none;
 }
 
-.action-icon[disabled]:hover {
+.action-icon[disabled]:hover,
+.action-icon.disabled:hover {
   background: none;
   transform: none;
 }
 
 .run-icon:hover {
   background: rgba(76, 175, 80, 0.1);
+}
+
+.action-icon.run-icon.disabled {
+  background: rgba(255, 152, 0, 0.3) !important;
+  color: #ff9800 !important;
+  border: 1px solid rgba(255, 152, 0, 0.5);
+}
+
+.action-icon.run-icon.disabled:hover {
+  background: rgba(255, 152, 0, 0.3) !important;
+  transform: none !important;
 }
 
 .edit-icon:hover {
@@ -315,17 +329,23 @@ body {
 /* Status Toast */
 .status-toast {
   position: fixed;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 12px 20px;
-  border-radius: 25px;
+  top: 20px;
+  right: 20px;
+  padding: 12px 16px;
+  border-radius: 8px;
   font-size: 13px;
   font-weight: 600;
-  z-index: 2000;
-  animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 10001;
+  min-width: 200px;
+  max-width: 300px;
   backdrop-filter: blur(10px);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.status-toast.show {
+  transform: translateX(0);
 }
 
 .status-toast.success {
@@ -341,17 +361,6 @@ body {
 .status-toast.warning {
   background: linear-gradient(135deg, #ffeaa7 0%, #fab1a0 100%);
   color: #2d3436;
-}
-
-@keyframes slideUp {
-  from {
-    bottom: -50px;
-    opacity: 0;
-  }
-  to {
-    bottom: 16px;
-    opacity: 1;
-  }
 }
 
 /* Scrollbar */
