@@ -350,6 +350,7 @@ function editScript(script) {
   panelScriptName.value = script.name;
   panelScriptCode.value = script.code;
   panelAutoRun.checked = script.autoRun || false;
+  panelBypassSecurity.checked = script.bypassSecurity || false;
   panelUrlMatchType.value = script.urlMatchType || 'all';
   panelUrlMatch.value = script.urlMatch || '';
   panelScriptName.readOnly = false;
@@ -409,6 +410,7 @@ async function saveScriptFromPanel() {
   const autoRun = panelAutoRun.checked;
   const urlMatchType = panelUrlMatchType.value;
   const urlMatch = panelUrlMatch.value.trim();
+  const bypassSecurity = panelBypassSecurity.checked;
 
   // Validate script name
   if (!validateScriptName(name)) {
@@ -417,16 +419,10 @@ async function saveScriptFromPanel() {
     return;
   }
 
-  // Check if bypass security checkbox exists and is checked
-  const bypassCheckbox = document.getElementById('panelBypassSecurity');
-  const bypassSecurity = bypassCheckbox ? bypassCheckbox.checked : false;
-
-  // Validate JavaScript code (unless bypassed)
-  if (!bypassSecurity) {
-    const codeValidation = validateJavaScript(code);
-    if (!codeValidation.valid) {
-      showStatus(`Invalid code: ${codeValidation.reason}. Check "Bypass security" to override.`, 'error');
-      panelScriptCode.focus();
+  // Validate JavaScript code
+  if (!validateJavaScript(code)) {
+    showStatus('Code validation failed. Check "Bypass security" to override size/security limits.', 'error');
+    panelScriptCode.focus();
       return;
     }
   } else {
@@ -461,6 +457,7 @@ async function saveScriptFromPanel() {
         name,
         code,
         autoRun,
+        bypassSecurity,
         urlMatchType: autoRun ? urlMatchType : undefined,
         urlMatch: autoRun && urlMatchType !== 'all' ? urlMatch : undefined,
         updatedAt: new Date().toISOString()
@@ -472,6 +469,7 @@ async function saveScriptFromPanel() {
         name,
         code,
         autoRun,
+        bypassSecurity,
         urlMatchType: autoRun ? urlMatchType : undefined,
         urlMatch: autoRun && urlMatchType !== 'all' ? urlMatch : undefined,
         createdAt: new Date().toISOString(),
@@ -607,6 +605,9 @@ function escapeHtml(text) {
 
 // Validate script name
 function validateScriptName(name) {
+  const bypassCheckbox = document.getElementById('panelBypassSecurity');
+  if (bypassCheckbox && bypassCheckbox.checked) return true;
+  
   if (!name || typeof name !== 'string') return false;
   if (name.length > 100) return false;
   if (name.trim() !== name) return false;
@@ -617,6 +618,9 @@ function validateScriptName(name) {
 
 // Validate URL for auto-run matching
 function validateUrl(url, type) {
+  const bypassCheckbox = document.getElementById('panelBypassSecurity');
+  if (bypassCheckbox && bypassCheckbox.checked) return true;
+  
   if (!url || typeof url !== 'string') return false;
   if (url.length > 500) return false;
   
@@ -644,7 +648,14 @@ function validateUrl(url, type) {
 // Validate JavaScript code (basic checks)
 function validateJavaScript(code) {
   if (!code || typeof code !== 'string') return false;
-  if (code.length > 50000) return false; // 50KB limit
+  
+  // Check if bypass security checkbox exists and is checked
+  const bypassCheckbox = document.getElementById('panelBypassSecurity');
+  const shouldBypass = bypassCheckbox ? bypassCheckbox.checked : false;
+  
+  if (code.length > 50000 && !shouldBypass) return false; // 50KB limit unless bypassed
+  
+  if (shouldBypass) return true; // Skip all validation if bypassed
   
   // Check for potentially dangerous patterns
   const dangerousPatterns = [

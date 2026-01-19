@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Bypass Functionality</title>
+</head>
+<body>
+    <h1>Test Bypass Functionality</h1>
+    
+    <div>
+        <label>
+            <input type="checkbox" id="panelBypassSecurity"> Bypass Security
+        </label>
+    </div>
+    
+    <textarea id="testCode" rows="10" cols="50">
+// This is a large script that exceeds 50KB when repeated
+console.log('Test script');
+    </textarea>
+    
+    <button onclick="testValidation()">Test Validation</button>
+    <div id="result"></div>
+    
+    <script>
+        // Copy the validation function from popup.js
+        function validateJavaScript(code) {
+          if (!code || typeof code !== 'string') return { valid: false, reason: 'Code is required' };
+          
+          // Check if bypass security checkbox exists and is checked
+          const bypassCheckbox = document.getElementById('panelBypassSecurity');
+          const shouldBypass = bypassCheckbox ? bypassCheckbox.checked : false;
+          
+          if (code.length > 50000 && !shouldBypass) {
+            return { valid: false, reason: 'Code too large (50KB limit)' };
+          }
+          
+          if (shouldBypass) {
+            return { valid: true, bypassed: true };
+          }
+          
+          // Check for potentially dangerous patterns only if not bypassed
+          const dangerousPatterns = [
+            /eval\s*\(/,
+            /Function\s*\(/,
+            /setTimeout\s*\(\s*["'`]/,
+            /setInterval\s*\(\s*["'`]/,
+            /document\.write/,
+            /innerHTML\s*=/,
+            /outerHTML\s*=/,
+            /insertAdjacentHTML/,
+            /execScript/,
+            /javascript:/,
+            /vbscript:/,
+            /data:text\/html/,
+            /srcdoc\s*=/
+          ];
+          
+          for (const pattern of dangerousPatterns) {
+            if (pattern.test(code)) {
+              return { valid: false, reason: 'Code contains potentially dangerous patterns' };
+            }
+          }
+          
+          return { valid: true };
+        }
+        
+        function testValidation() {
+            const code = document.getElementById('testCode').value;
+            // Make code large to test 50KB limit
+            const largeCode = code.repeat(2000); // Should exceed 50KB
+            
+            const result = validateJavaScript(largeCode);
+            document.getElementById('result').innerHTML = 
+                `<p>Code size: ${largeCode.length} bytes</p>
+                 <p>Valid: ${result.valid}</p>
+                 <p>Reason: ${result.reason || 'N/A'}</p>
+                 <p>Bypassed: ${result.bypassed || false}</p>`;
+        }
+    </script>
+</body>
+</html>

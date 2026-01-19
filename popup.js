@@ -468,6 +468,7 @@ async function saveScriptFromPanel() {
   const persistent = panelPersistent.checked;
   const urlMatchType = panelUrlMatchType.value;
   const urlMatch = panelUrlMatch.value.trim();
+  const bypassSecurity = panelBypassSecurity.checked;
 
   // Validate script name
   if (!validateScriptName(name)) {
@@ -514,6 +515,7 @@ async function saveScriptFromPanel() {
         code: code,
         autoRun,
         persistent,
+        bypassSecurity,
         urlMatchType: autoRun ? urlMatchType : undefined,
         urlMatch: autoRun && urlMatchType !== 'all' ? urlMatch : undefined,
         updatedAt: new Date().toISOString()
@@ -525,6 +527,7 @@ async function saveScriptFromPanel() {
         code: code,
         autoRun,
         persistent,
+        bypassSecurity,
         urlMatchType: autoRun ? urlMatchType : undefined,
         urlMatch: autoRun && urlMatchType !== 'all' ? urlMatch : undefined,
         createdAt: new Date().toISOString(),
@@ -677,6 +680,9 @@ function escapeHtml(text) {
 
 // Validate script name
 function validateScriptName(name) {
+  const bypassCheckbox = document.getElementById('panelBypassSecurity');
+  if (bypassCheckbox && bypassCheckbox.checked) return true;
+  
   if (!name || typeof name !== 'string') return false;
   if (name.length > 100) return false;
   if (name.trim() !== name) return false;
@@ -687,6 +693,9 @@ function validateScriptName(name) {
 
 // Validate URL for auto-run matching
 function validateUrl(url, type) {
+  const bypassCheckbox = document.getElementById('panelBypassSecurity');
+  if (bypassCheckbox && bypassCheckbox.checked) return true;
+  
   if (!url || typeof url !== 'string') return false;
   if (url.length > 500) return false;
   
@@ -714,11 +723,14 @@ function validateUrl(url, type) {
 // Validate JavaScript code (basic checks)
 function validateJavaScript(code) {
   if (!code || typeof code !== 'string') return { valid: false, reason: 'Code is required' };
-  if (code.length > 50000) return { valid: false, reason: 'Code too large (50KB limit)' };
   
   // Check if bypass security checkbox exists and is checked
   const bypassCheckbox = document.getElementById('panelBypassSecurity');
   const shouldBypass = bypassCheckbox ? bypassCheckbox.checked : false;
+  
+  if (code.length > 50000 && !shouldBypass) {
+    return { valid: false, reason: 'Code too large (50KB limit)' };
+  }
   
   if (shouldBypass) {
     return { valid: true, bypassed: true };

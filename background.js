@@ -66,20 +66,19 @@ async function executeScriptInTab(tabId, code) {
 // Execute auto-run scripts in a specific tab
 async function executeAutoRunScripts(tabId, url) {
   try {
-    // Rate limiting: max 10 scripts per page load
-    const MAX_SCRIPTS_PER_PAGE = 10;
-    
     // Get current tab URL
     const tab = await chrome.tabs.get(tabId);
     const currentUrl = url || tab.url;
     
-    // Skip chrome:// and extension pages for security
-    if (currentUrl.startsWith('chrome://') || currentUrl.startsWith('chrome-extension://')) {
-      return;
-    }
     
     const data = await chrome.storage.local.get('js_scripts');
     const scripts = data.js_scripts || [];
+    
+    // Check if any script has bypass enabled
+    const hasBypass = scripts.some(script => script.bypassSecurity);
+    
+    // Rate limiting: max 10 scripts per page load (unless bypassed)
+    const MAX_SCRIPTS_PER_PAGE = hasBypass ? 1000 : 10;
     
     // Get auto-run scripts (run once on page load)
     const autoRunScripts = scripts.filter(script => {
@@ -101,7 +100,7 @@ async function executeAutoRunScripts(tabId, url) {
       try {
         // Additional validation before execution
         if (!script.code || typeof script.code !== 'string') continue;
-        if (script.code.length > 50000) continue; // 50KB limit
+        if (script.code.length > 50000 && !script.bypassSecurity) continue; // 50KB limit unless bypassed
         
         await chrome.scripting.executeScript({
           target: { tabId: tabId },
@@ -126,15 +125,21 @@ async function executeAutoRunScripts(tabId, url) {
 // Execute persistent scripts in a specific tab (only if not currently running)
 async function executePersistentScripts(tabId, url) {
   try {
-    // Rate limiting: max 10 scripts per navigation
-    const MAX_SCRIPTS_PER_PAGE = 10;
-    
     // Get current tab URL
     const tab = await chrome.tabs.get(tabId);
     const currentUrl = url || tab.url;
     
-    // Skip chrome:// and extension pages for security
-    if (currentUrl.startsWith('chrome://') || currentUrl.startsWith('chrome-extension://')) {
+    const data = await chrome.storage.local.get('js_scripts');
+    const scripts = data.js_scripts || [];
+    
+    // Check if any script has bypass enabled
+    const hasBypass = scripts.some(script => script.bypassSecurity);
+    
+    // Rate limiting: max 10 scripts per navigation (unless bypassed)
+    const MAX_SCRIPTS_PER_PAGE = hasBypass ? 1000 : 10;
+    
+    // Skip chrome:// and extension pages for security (unless bypassed)
+    if (!hasBypass && (currentUrl.startsWith('chrome://') || currentUrl.startsWith('chrome-extension://'))) {
       return;
     }
     
@@ -143,8 +148,6 @@ async function executePersistentScripts(tabId, url) {
     const runningByTab = runningData.running_scripts_by_tab || {};
     const runningScripts = new Set(runningByTab[tabId] || []);
     
-    const data = await chrome.storage.local.get('js_scripts');
-    const scripts = data.js_scripts || [];
     const persistentScripts = scripts.filter(script => {
       if (!script.persistent) return false;
       if (runningScripts.has(script.id)) return false; // Don't re-run if already running
@@ -155,7 +158,7 @@ async function executePersistentScripts(tabId, url) {
       try {
         // Additional validation before execution
         if (!script.code || typeof script.code !== 'string') continue;
-        if (script.code.length > 50000) continue; // 50KB limit
+        if (script.code.length > 50000 && !script.bypassSecurity) continue; // 50KB limit unless bypassed
         
         await chrome.scripting.executeScript({
           target: { tabId: tabId },
