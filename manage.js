@@ -350,7 +350,13 @@ function editScript(script) {
   panelScriptName.value = script.name;
   panelScriptCode.value = script.code;
   panelAutoRun.checked = script.autoRun || false;
-  panelBypassSecurity.checked = script.bypassSecurity || false;
+  
+  // Safely set bypass security checkbox
+  const bypassCheckbox = document.getElementById('panelBypassSecurity');
+  if (bypassCheckbox) {
+    bypassCheckbox.checked = script.bypassSecurity || false;
+  }
+  
   panelUrlMatchType.value = script.urlMatchType || 'all';
   panelUrlMatch.value = script.urlMatch || '';
   panelScriptName.readOnly = false;
@@ -410,7 +416,7 @@ async function saveScriptFromPanel() {
   const autoRun = panelAutoRun.checked;
   const urlMatchType = panelUrlMatchType.value;
   const urlMatch = panelUrlMatch.value.trim();
-  const bypassSecurity = panelBypassSecurity.checked;
+  const bypassSecurity = document.getElementById('panelBypassSecurity')?.checked || false;
 
   // Validate script name
   if (!validateScriptName(name)) {

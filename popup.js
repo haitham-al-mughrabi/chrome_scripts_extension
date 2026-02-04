@@ -183,13 +183,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Listen for storage changes to refresh running state
   chrome.storage.onChanged.addListener((changes, namespace) => {
     if (namespace === 'local' && changes.running_scripts_by_tab) {
-      // Force reload running scripts and refresh UI immediately
-  // Listen for storage changes to refresh running state
-  chrome.storage.onChanged.addListener((changes, namespace) => {
-    if (namespace === 'local' && changes.running_scripts_by_tab) {
       displayScripts(); // Refresh UI when running state changes
-    }
-  });
     }
   });
   
@@ -266,45 +260,47 @@ async function loadScripts() {
 }
 
 // Display scripts in the list with pagination
-let isDisplaying = false;
 async function displayScripts() {
-  if (isDisplaying) return; // Prevent concurrent calls
-  isDisplaying = true;
+  // Prevent concurrent execution
+  if (displayScripts.isRunning) return;
+  displayScripts.isRunning = true;
   
-  scriptsList.innerHTML = ''; // Safe: clearing container
+  try {
+    scriptsList.innerHTML = ''; // Safe: clearing container
 
-  if (filteredScripts.length === 0) {
-    emptyState.style.display = 'block';
-    scriptsList.style.display = 'none';
-    pagination.style.display = 'none';
-    isDisplaying = false;
-    return;
-  }
+    if (filteredScripts.length === 0) {
+      emptyState.style.display = 'block';
+      scriptsList.style.display = 'none';
+      pagination.style.display = 'none';
+      return;
+    }
 
-  emptyState.style.display = 'none';
-  scriptsList.style.display = 'block';
+    emptyState.style.display = 'none';
+    scriptsList.style.display = 'block';
 
-  // Calculate pagination
-  totalPages = Math.ceil(filteredScripts.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = startIndex + ITEMS_PER_PAGE;
+    // Calculate pagination
+    totalPages = Math.ceil(filteredScripts.length / ITEMS_PER_PAGE);
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
 
-  // Sort by updated date (newest first)
-  const sortedScripts = [...filteredScripts].sort((a, b) => {
-    return new Date(b.updatedAt) - new Date(a.updatedAt);
-  });
+    // Sort by updated date (newest first)
+    const sortedScripts = [...filteredScripts].sort((a, b) => {
+      return new Date(b.updatedAt) - new Date(a.updatedAt);
+    });
 
-  // Get scripts for current page
-  const pageScripts = sortedScripts.slice(startIndex, endIndex);
+    // Get scripts for current page
+    const pageScripts = sortedScripts.slice(startIndex, endIndex);
 
-  for (const script of pageScripts) {
+    for (const script of pageScripts) {
     const scriptItem = await createScriptItem(script);
     scriptsList.appendChild(scriptItem);
   }
 
   // Update pagination UI
   updatePaginationUI();
-  isDisplaying = false;
+  } finally {
+    displayScripts.isRunning = false;
+  }
 }
 
 // Create script item element
@@ -369,12 +365,10 @@ async function createScriptItem(script) {
   // Add right-click to reset running state
   runIcon.addEventListener('contextmenu', async (e) => {
     e.preventDefault();
-    if (runningScripts.has(script.id)) {
-      runningScripts.delete(script.id);
-      await saveRunningScripts();
-      runIcon.classList.remove('disabled');
-      runIcon.innerHTML = '▶️';
-      runIcon.title = 'Run Script';
+    const currentRunningScripts = await getCurrentTabRunningScripts();
+    if (currentRunningScripts.has(script.id)) {
+      await removeRunningScript(script.id);
+      displayScripts(); // Refresh UI to show updated state
       showStatus('Script reset for this tab', 'success');
     }
   });
@@ -392,15 +386,42 @@ async function createScriptItem(script) {
     if (script.persistent) {
       persistentToggle.classList.add('active');
       persistentToggle.title = 'Persistent: ON - Click to disable';
+      
+      // If enabling persistent and script should run on current URL, execute it now
+      if (currentTabId) {
+        try {
+          const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+          if (tab && shouldRunOnCurrentUrl(script, tab.url)) {
+            // Execute the script immediately and mark as running
+            await chrome.runtime.sendMessage({
+              action: 'executeScript',
+              tabId: currentTabId,
+              code: script.code
+            });
+            await addRunningScript(script.id);
+            showStatus(`Persistent script "${script.name}" executed and will re-run on navigation`, 'success');
+          } else {
+            showStatus(`Persistent enabled for "${script.name}" - will run when URL matches`, 'success');
+          }
+        } catch (error) {
+          console.error('Error executing persistent script:', error);
+          showStatus(`Persistent enabled for "${script.name}"`, 'success');
+        }
+      }
     } else {
       persistentToggle.classList.remove('active');
       persistentToggle.title = 'Persistent: OFF - Click to enable';
+      
+      // If disabling persistent, remove from running state
+      if (currentTabId) {
+        await removeRunningScript(script.id);
+      }
+      showStatus(`Persistent disabled for "${script.name}"`, 'success');
     }
     
     // Save to storage
     try {
       await FILE_MANAGER.saveScript(script);
-      showStatus(`Persistent ${script.persistent ? 'enabled' : 'disabled'} for "${script.name}"`, 'success');
     } catch (error) {
       showStatus('Failed to update script', 'error');
       console.error(error);
@@ -426,24 +447,35 @@ function openNewScript() {
   // FORCE ADD BYPASS SECURITY CHECKBOX
   let bypassCheckbox = document.getElementById('panelBypassSecurity');
   if (!bypassCheckbox) {
+    console.warn('Bypass security checkbox not found in HTML, creating dynamically');
     
     // Find the persistent checkbox container
-    const persistentContainer = document.querySelector('#panelPersistent').closest('.form-group');
+    const persistentContainer = document.querySelector('#panelPersistent')?.closest('.form-group');
     
-    // Create new container with same structure as other checkboxes
-    const newContainer = document.createElement('div');
-    newContainer.className = 'form-group';
-    
-    newContainer.innerHTML = `
-      <label class="checkbox-label">
-        <input type="checkbox" id="panelBypassSecurity" class="checkbox-input">
-        <span class="checkbox-custom"></span>
-        <span class="checkbox-text">⚠️ Bypass Security Validation</span>
-      </label>
-    `;
-    
-    // Insert after persistent checkbox
-    persistentContainer.parentNode.insertBefore(newContainer, persistentContainer.nextSibling);
+    if (persistentContainer) {
+      // Create new container with same structure as other checkboxes
+      const newContainer = document.createElement('div');
+      newContainer.className = 'form-group';
+      
+      newContainer.innerHTML = `
+        <label class="checkbox-label security-warning">
+          <input type="checkbox" id="panelBypassSecurity" class="checkbox-input">
+          <span class="checkbox-custom"></span>
+          <span class="label-text">
+            <span class="label-icon">⚠️</span>
+            Bypass security validation (use at your own risk)
+          </span>
+        </label>
+      `;
+      
+      // Insert after persistent checkbox
+      persistentContainer.parentNode.insertBefore(newContainer, persistentContainer.nextSibling);
+      bypassCheckbox = document.getElementById('panelBypassSecurity');
+    }
+  }
+  
+  if (bypassCheckbox) {
+    bypassCheckbox.checked = false;
   }
   
   panelUrlMatchType.value = 'all';
@@ -475,7 +507,13 @@ function editScript(script) {
   panelScriptCode.value = script.code;
   panelAutoRun.checked = script.autoRun || false;
   panelPersistent.checked = script.persistent || false;
-  panelBypassSecurity.checked = script.bypassSecurity || false;
+  
+  // Safely set bypass security checkbox
+  const bypassCheckbox = document.getElementById('panelBypassSecurity');
+  if (bypassCheckbox) {
+    bypassCheckbox.checked = script.bypassSecurity || false;
+  }
+  
   panelUrlMatchType.value = script.urlMatchType || 'all';
   panelUrlMatch.value = script.urlMatch || '';
   panelScriptName.readOnly = false;
@@ -518,7 +556,7 @@ async function saveScriptFromPanel() {
   const persistent = panelPersistent.checked;
   const urlMatchType = panelUrlMatchType.value;
   const urlMatch = panelUrlMatch.value.trim();
-  const bypassSecurity = panelBypassSecurity.checked;
+  const bypassSecurity = document.getElementById('panelBypassSecurity')?.checked || false;
 
   // Validate script name
   if (!validateScriptName(name)) {
@@ -587,6 +625,33 @@ async function saveScriptFromPanel() {
 
     await FILE_MANAGER.saveScript(script);
     showStatus(editingScriptId ? 'Script updated' : 'Script saved', 'success');
+
+    // If auto-run or persistent script is enabled and matches current URL, execute it immediately
+    if ((autoRun || persistent) && currentTabId) {
+      try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (tab && shouldRunOnCurrentUrl(script, tab.url)) {
+          // Execute the script immediately
+          await chrome.runtime.sendMessage({
+            action: 'executeScript',
+            tabId: currentTabId,
+            code: script.code
+          });
+          
+          // Mark as running if persistent (auto-run scripts don't stay running)
+          if (persistent) {
+            await addRunningScript(script.id);
+          }
+          
+          const scriptType = autoRun && persistent ? 'Auto-run & persistent' : 
+                           autoRun ? 'Auto-run' : 'Persistent';
+          showStatus(`${scriptType} script ${editingScriptId ? 'updated' : 'saved'} and executed`, 'success');
+        }
+      } catch (error) {
+        console.error('Error executing script:', error);
+        // Don't show error to user, script was saved successfully
+      }
+    }
 
     setTimeout(() => {
       closePanel();
@@ -808,6 +873,38 @@ function validateJavaScript(code) {
   }
   
   return { valid: true };
+}
+
+// Check if script should run on current URL (helper function)
+function shouldRunOnCurrentUrl(script, url) {
+  const matchType = script.urlMatchType || 'all';
+  const matchValue = script.urlMatch || '';
+  
+  switch (matchType) {
+    case 'all':
+      return true;
+    case 'exact':
+      return url === matchValue;
+    case 'domain':
+      try {
+        const urlObj = new URL(url);
+        return urlObj.hostname === matchValue || urlObj.hostname.endsWith('.' + matchValue);
+      } catch {
+        return false;
+      }
+    case 'contains':
+      return url.includes(matchValue);
+    case 'pattern':
+      // Convert simple pattern to regex (* becomes .*)
+      const regexPattern = matchValue.replace(/\*/g, '.*');
+      try {
+        return new RegExp('^' + regexPattern + '$').test(url);
+      } catch {
+        return false;
+      }
+    default:
+      return false;
+  }
 }
 
 // ===== Pagination Functions =====

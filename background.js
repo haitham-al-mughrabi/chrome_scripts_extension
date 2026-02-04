@@ -47,13 +47,24 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 // Execute script in a specific tab
 async function executeScriptInTab(tabId, code) {
   try {
+    // Validate tab exists and is accessible
+    const tab = await chrome.tabs.get(tabId);
+    if (!tab || tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
+      throw new Error('Cannot execute scripts on this page');
+    }
+
     await chrome.scripting.executeScript({
       target: { tabId: tabId },
       world: 'MAIN',
       func: (scriptCode) => {
-        // Execute in main world context to bypass CSP
-        const fn = new Function(scriptCode);
-        fn();
+        try {
+          // Execute in main world context to bypass CSP
+          const fn = new Function(scriptCode);
+          fn();
+        } catch (error) {
+          console.error('Script execution error:', error);
+          // Don't throw here as it would break the extension
+        }
       },
       args: [code]
     });
@@ -66,10 +77,17 @@ async function executeScriptInTab(tabId, code) {
 // Execute auto-run scripts in a specific tab
 async function executeAutoRunScripts(tabId, url) {
   try {
-    // Get current tab URL
-    const tab = await chrome.tabs.get(tabId);
-    const currentUrl = url || tab.url;
-    
+    // Get current tab URL with error handling
+    let currentUrl = url;
+    if (!currentUrl) {
+      try {
+        const tab = await chrome.tabs.get(tabId);
+        currentUrl = tab.url;
+      } catch (error) {
+        console.warn('Could not get tab URL:', error);
+        return; // Skip execution if we can't get the URL
+      }
+    }
     
     const data = await chrome.storage.local.get('js_scripts');
     const scripts = data.js_scripts || [];
@@ -91,15 +109,38 @@ async function executeAutoRunScripts(tabId, url) {
     const runningByTab = runningData.running_scripts_by_tab || {};
     const runningScripts = new Set(runningByTab[tabId] || []);
     
-    // Get persistent scripts that are currently running (re-run on page load)
+    // Get persistent scripts that should run (either already running OR newly enabled)
     const persistentScripts = scripts.filter(script => {
       if (!script.persistent) return false;
-      return runningScripts.has(script.id); // Only if currently running
+      // Persistent scripts run if they match URL and are either:
+      // 1. Already running on this tab, OR
+      // 2. Should run on this URL (newly enabled persistent scripts)
+      return runningScripts.has(script.id) || shouldRunOnUrl(script, currentUrl);
     });
     
-    // Combine and limit
-    const allScriptsToRun = [...autoRunScripts, ...persistentScripts]
-      .slice(0, MAX_SCRIPTS_PER_PAGE);
+    // Combine scripts, but avoid duplicates (script can be both auto-run and persistent)
+    const allScriptsMap = new Map();
+    
+    // Add auto-run scripts
+    autoRunScripts.forEach(script => {
+      allScriptsMap.set(script.id, { ...script, reason: 'auto-run' });
+    });
+    
+    // Add persistent scripts (may override auto-run reason)
+    persistentScripts.forEach(script => {
+      const existing = allScriptsMap.get(script.id);
+      if (existing) {
+        allScriptsMap.set(script.id, { ...script, reason: 'auto-run+persistent' });
+      } else {
+        allScriptsMap.set(script.id, { ...script, reason: 'persistent' });
+      }
+    });
+    
+    // Convert to array and limit
+    const allScriptsToRun = Array.from(allScriptsMap.values()).slice(0, MAX_SCRIPTS_PER_PAGE);
+    
+    // Track which scripts will be running after execution
+    const scriptsToMarkRunning = new Set();
     
     for (const script of allScriptsToRun) {
       try {
@@ -111,15 +152,43 @@ async function executeAutoRunScripts(tabId, url) {
           target: { tabId: tabId },
           world: 'MAIN',
           func: (scriptCode) => {
-            // Execute in main world context to bypass CSP
-            const fn = new Function(scriptCode);
-            fn();
+            try {
+              // Execute in main world context to bypass CSP
+              const fn = new Function(scriptCode);
+              fn();
+            } catch (error) {
+              console.error('Script execution error:', error);
+              // Don't throw here as it would break the extension
+            }
           },
           args: [script.code]
         });
+        
+        // Mark script as running only if it's persistent
+        if (script.persistent) {
+          scriptsToMarkRunning.add(script.id);
+        }
       } catch (error) {
         console.error(`Error running script "${script.name}":`, error);
       }
+    }
+    
+    // Update running scripts storage for persistent scripts
+    if (scriptsToMarkRunning.size > 0) {
+      if (!runningByTab[tabId]) {
+        runningByTab[tabId] = [];
+      }
+      
+      // Add new running scripts
+      for (const scriptId of scriptsToMarkRunning) {
+        if (!runningByTab[tabId].includes(scriptId)) {
+          runningByTab[tabId].push(scriptId);
+        }
+      }
+      
+      await chrome.storage.local.set({ 
+        running_scripts_by_tab: runningByTab 
+      });
     }
   } catch (error) {
     console.error('Error executing auto-run scripts:', error);
@@ -130,9 +199,17 @@ async function executeAutoRunScripts(tabId, url) {
 // Execute persistent scripts in a specific tab (only if not currently running)
 async function executePersistentScripts(tabId, url) {
   try {
-    // Get current tab URL
-    const tab = await chrome.tabs.get(tabId);
-    const currentUrl = url || tab.url;
+    // Get current tab URL with error handling
+    let currentUrl = url;
+    if (!currentUrl) {
+      try {
+        const tab = await chrome.tabs.get(tabId);
+        currentUrl = tab.url;
+      } catch (error) {
+        console.warn('Could not get tab URL:', error);
+        return; // Skip execution if we can't get the URL
+      }
+    }
     
     const data = await chrome.storage.local.get('js_scripts');
     const scripts = data.js_scripts || [];
@@ -153,9 +230,11 @@ async function executePersistentScripts(tabId, url) {
     const runningByTab = runningData.running_scripts_by_tab || {};
     const runningScripts = new Set(runningByTab[tabId] || []);
     
+    // Get persistent scripts that should run on navigation
     const persistentScripts = scripts.filter(script => {
       if (!script.persistent) return false;
-      // Persistent scripts only run if they are currently marked as running on this tab
+      // Persistent scripts run if they are currently marked as running on this tab
+      // This ensures they only re-run if they were previously executed
       return runningScripts.has(script.id);
     }).slice(0, MAX_SCRIPTS_PER_PAGE); // Limit number of scripts
     
@@ -169,9 +248,14 @@ async function executePersistentScripts(tabId, url) {
           target: { tabId: tabId },
           world: 'MAIN',
           func: (scriptCode) => {
-            // Execute in main world context to bypass CSP
-            const fn = new Function(scriptCode);
-            fn();
+            try {
+              // Execute in main world context to bypass CSP
+              const fn = new Function(scriptCode);
+              fn();
+            } catch (error) {
+              console.error('Script execution error:', error);
+              // Don't throw here as it would break the extension
+            }
           },
           args: [script.code]
         });

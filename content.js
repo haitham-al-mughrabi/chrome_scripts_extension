@@ -14,7 +14,7 @@
       url: window.location.href 
     });
   } catch (error) {
-    if (error.message.includes('Extension context invalidated')) {
+    if (error.message && error.message.includes('Extension context invalidated')) {
       console.log('Extension was reloaded, skipping script execution');
       return;
     }
@@ -24,9 +24,18 @@
 
 // Listen for navigation changes to re-run persistent scripts
 let lastUrl = window.location.href;
+let observer = null;
+
+// Cleanup function
+function cleanup() {
+  if (observer) {
+    observer.disconnect();
+    observer = null;
+  }
+}
 
 // Check for URL changes (for SPAs)
-const observer = new MutationObserver(() => {
+observer = new MutationObserver(() => {
   if (window.location.href !== lastUrl) {
     lastUrl = window.location.href;
     
@@ -38,8 +47,9 @@ const observer = new MutationObserver(() => {
           url: window.location.href 
         });
       } catch (error) {
-        if (error.message.includes('Extension context invalidated')) {
+        if (error.message && error.message.includes('Extension context invalidated')) {
           console.log('Extension was reloaded, skipping persistent script execution');
+          cleanup();
           return;
         }
         console.error('Error requesting persistent scripts:', error);
@@ -49,3 +59,7 @@ const observer = new MutationObserver(() => {
 });
 
 observer.observe(document, { subtree: true, childList: true });
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', cleanup);
+window.addEventListener('unload', cleanup);
