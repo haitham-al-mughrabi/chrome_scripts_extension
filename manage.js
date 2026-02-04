@@ -430,7 +430,6 @@ async function saveScriptFromPanel() {
     showStatus('Code validation failed. Check "Bypass security" to override size/security limits.', 'error');
     panelScriptCode.focus();
       return;
-    }
   } else {
     // Show warning when bypassing security
     showStatus('⚠️ Security validation bypassed - use at your own risk!', 'warning');
