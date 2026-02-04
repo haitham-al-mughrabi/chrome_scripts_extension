@@ -86,10 +86,15 @@ async function executeAutoRunScripts(tabId, url) {
       return shouldRunOnUrl(script, currentUrl);
     });
     
-    // Get persistent scripts (always run on page load, regardless of running state)
+    // Get running scripts for this tab to check persistent scripts
+    const runningData = await chrome.storage.local.get('running_scripts_by_tab');
+    const runningByTab = runningData.running_scripts_by_tab || {};
+    const runningScripts = new Set(runningByTab[tabId] || []);
+    
+    // Get persistent scripts that are currently running (re-run on page load)
     const persistentScripts = scripts.filter(script => {
       if (!script.persistent) return false;
-      return shouldRunOnUrl(script, currentUrl);
+      return runningScripts.has(script.id); // Only if currently running
     });
     
     // Combine and limit
@@ -150,8 +155,8 @@ async function executePersistentScripts(tabId, url) {
     
     const persistentScripts = scripts.filter(script => {
       if (!script.persistent) return false;
-      if (runningScripts.has(script.id)) return false; // Don't re-run if already running
-      return shouldRunOnUrl(script, currentUrl);
+      // Persistent scripts only run if they are currently marked as running on this tab
+      return runningScripts.has(script.id);
     }).slice(0, MAX_SCRIPTS_PER_PAGE); // Limit number of scripts
     
     for (const script of persistentScripts) {
@@ -212,14 +217,26 @@ function shouldRunOnUrl(script, url) {
   }
 }
 
-// Clear running state for a specific tab
+// Clear running state for a specific tab (only non-persistent scripts)
 async function clearRunningStateForTab(tabId) {
   try {
-    const data = await chrome.storage.local.get('running_scripts_by_tab');
+    const data = await chrome.storage.local.get(['running_scripts_by_tab', 'js_scripts']);
     const runningByTab = data.running_scripts_by_tab || {};
+    const scripts = data.js_scripts || [];
     
-    // Remove this tab's running scripts
-    delete runningByTab[tabId];
+    const runningScriptIds = runningByTab[tabId] || [];
+    
+    // Only clear non-persistent scripts
+    const persistentScriptIds = runningScriptIds.filter(scriptId => {
+      const script = scripts.find(s => s.id === scriptId);
+      return script && script.persistent;
+    });
+    
+    if (persistentScriptIds.length > 0) {
+      runningByTab[tabId] = persistentScriptIds;
+    } else {
+      delete runningByTab[tabId];
+    }
     
     await chrome.storage.local.set({ 
       running_scripts_by_tab: runningByTab 

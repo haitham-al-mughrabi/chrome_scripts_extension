@@ -63,20 +63,7 @@ let runningScripts = new Map(); // Map of tabId -> Set of script IDs
 let currentTabId = null;
 
 // Load running scripts from storage on startup
-async function loadRunningScripts() {
-  try {
-    const data = await chrome.storage.local.get('running_scripts_by_tab');
-    const runningByTab = data.running_scripts_by_tab || {};
-    runningScripts = new Map();
-    
-    // Convert stored object back to Map of Sets
-    for (const [tabId, scriptIds] of Object.entries(runningByTab)) {
-      runningScripts.set(parseInt(tabId), new Set(scriptIds));
-    }
-  } catch (error) {
-    console.error('Error loading running scripts:', error);
-  }
-}
+// No longer needed - working directly with storage
 
 // Save running scripts to storage
 async function saveRunningScripts() {
@@ -95,44 +82,88 @@ async function saveRunningScripts() {
   }
 }
 
-// Get current tab's running scripts
-function getCurrentTabRunningScripts() {
+// Get current tab's running scripts (always check fresh from storage)
+async function getCurrentTabRunningScripts() {
   if (!currentTabId) return new Set();
-  return runningScripts.get(currentTabId) || new Set();
-}
-
-// Add script to current tab's running list
-function addRunningScript(scriptId) {
-  if (!currentTabId) return;
-  if (!runningScripts.has(currentTabId)) {
-    runningScripts.set(currentTabId, new Set());
+  
+  try {
+    const data = await chrome.storage.local.get('running_scripts_by_tab');
+    const runningByTab = data.running_scripts_by_tab || {};
+    const tabScripts = new Set(runningByTab[currentTabId] || []);
+    console.log('🔍 Tab:', currentTabId, 'Running scripts:', Array.from(tabScripts));
+    console.log('🔍 All tabs in storage:', Object.keys(runningByTab));
+    return tabScripts;
+  } catch (error) {
+    console.error('Error getting running scripts:', error);
+    return new Set();
   }
-  runningScripts.get(currentTabId).add(scriptId);
 }
 
-// Remove script from current tab's running list
-function removeRunningScript(scriptId) {
+// Add script to current tab's running list (direct storage)
+async function addRunningScript(scriptId) {
   if (!currentTabId) return;
-  const tabScripts = runningScripts.get(currentTabId);
-  if (tabScripts) {
-    tabScripts.delete(scriptId);
-    if (tabScripts.size === 0) {
-      runningScripts.delete(currentTabId);
+  
+  console.log('🚀 Adding script', scriptId, 'to tab', currentTabId);
+  
+  try {
+    const data = await chrome.storage.local.get('running_scripts_by_tab');
+    const runningByTab = data.running_scripts_by_tab || {};
+    
+    console.log('📦 Current storage before:', runningByTab);
+    
+    if (!runningByTab[currentTabId]) {
+      runningByTab[currentTabId] = [];
     }
+    
+    if (!runningByTab[currentTabId].includes(scriptId)) {
+      runningByTab[currentTabId].push(scriptId);
+    }
+    
+    console.log('📦 Storage after update:', runningByTab);
+    
+    await chrome.storage.local.set({ running_scripts_by_tab: runningByTab });
+    
+    console.log('✅ Script added successfully');
+  } catch (error) {
+    console.error('❌ Error adding running script:', error);
   }
 }
+
+// Remove script from current tab's running list (direct storage)
+async function removeRunningScript(scriptId) {
+  if (!currentTabId) return;
+  
+  try {
+    const data = await chrome.storage.local.get('running_scripts_by_tab');
+    const runningByTab = data.running_scripts_by_tab || {};
+    
+    if (runningByTab[currentTabId]) {
+      runningByTab[currentTabId] = runningByTab[currentTabId].filter(id => id !== scriptId);
+      
+      if (runningByTab[currentTabId].length === 0) {
+        delete runningByTab[currentTabId];
+      }
+    }
+    
+    await chrome.storage.local.set({ running_scripts_by_tab: runningByTab });
+  } catch (error) {
+    console.error('Error removing running script:', error);
+  }
+}
+
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
-  // Get current tab ID first
+  // Always get the current active tab when popup opens
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     currentTabId = tab?.id;
+    console.log('Popup opened for tab:', currentTabId, 'URL:', tab?.url);
   } catch (error) {
     console.error('Error getting current tab:', error);
   }
   
-  await loadRunningScripts(); // Load persistent running state
+  // No longer needed - working directly with storage
   loadScripts();
   setupEventListeners();
 
@@ -142,12 +173,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Start watching for file changes
   FILE_MANAGER.startWatching(loadScripts);
   
+  // Listen for tab changes to update current tab ID
+  chrome.tabs.onActivated.addListener(async (activeInfo) => {
+    currentTabId = activeInfo.tabId;
+    // No longer needed - working directly with storage
+    displayScripts(); // Refresh UI for new tab
+  });
+  
   // Listen for storage changes to refresh running state
   chrome.storage.onChanged.addListener((changes, namespace) => {
     if (namespace === 'local' && changes.running_scripts_by_tab) {
-      loadRunningScripts().then(() => {
-        displayScripts(); // Refresh UI
-      });
+      // Force reload running scripts and refresh UI immediately
+  // Listen for storage changes to refresh running state
+  chrome.storage.onChanged.addListener((changes, namespace) => {
+    if (namespace === 'local' && changes.running_scripts_by_tab) {
+      displayScripts(); // Refresh UI when running state changes
+    }
+  });
     }
   });
   
@@ -224,13 +266,18 @@ async function loadScripts() {
 }
 
 // Display scripts in the list with pagination
-function displayScripts() {
+let isDisplaying = false;
+async function displayScripts() {
+  if (isDisplaying) return; // Prevent concurrent calls
+  isDisplaying = true;
+  
   scriptsList.innerHTML = ''; // Safe: clearing container
 
   if (filteredScripts.length === 0) {
     emptyState.style.display = 'block';
     scriptsList.style.display = 'none';
     pagination.style.display = 'none';
+    isDisplaying = false;
     return;
   }
 
@@ -250,23 +297,25 @@ function displayScripts() {
   // Get scripts for current page
   const pageScripts = sortedScripts.slice(startIndex, endIndex);
 
-  pageScripts.forEach(script => {
-    const scriptItem = createScriptItem(script); // createScriptItem uses escapeHtml for safety
+  for (const script of pageScripts) {
+    const scriptItem = await createScriptItem(script);
     scriptsList.appendChild(scriptItem);
-  });
+  }
 
   // Update pagination UI
   updatePaginationUI();
+  isDisplaying = false;
 }
 
 // Create script item element
-function createScriptItem(script) {
+async function createScriptItem(script) {
   const div = document.createElement('div');
   div.className = 'script-item';
   div.dataset.id = script.id;
 
   const updatedDate = new Date(script.updatedAt).toLocaleDateString();
-  const isRunning = getCurrentTabRunningScripts().has(script.id);
+  const runningScripts = await getCurrentTabRunningScripts();
+  const isRunning = runningScripts.has(script.id);
   const autoRunIcon = script.autoRun ? '<span class="auto-run-indicator" title="Auto-runs on page load">🚀</span>' : '';
   const persistentIcon = script.persistent ? '<span class="persistent-indicator" title="Re-runs on navigation/reload">🔄</span>' : '';
 
@@ -307,11 +356,12 @@ function createScriptItem(script) {
 
   // Add event listeners with live state checking
   const runIcon = div.querySelector('.run-icon');
-  runIcon.addEventListener('click', (e) => {
+  runIcon.addEventListener('click', async (e) => {
     e.preventDefault();
     e.stopPropagation();
     // Check running state at click time, not creation time
-    if (!runningScripts.has(script.id)) {
+    const currentRunningScripts = await getCurrentTabRunningScripts();
+    if (!currentRunningScripts.has(script.id)) {
       runScript(script);
     }
   });
@@ -562,14 +612,14 @@ async function deleteScript(id) {
 
 // Run script
 async function runScript(script) {
-  if (getCurrentTabRunningScripts().has(script.id)) {
+  const runningScripts = await getCurrentTabRunningScripts();
+  if (runningScripts.has(script.id)) {
     return; // Already running on this tab
   }
 
   try {
     // Mark script as running on current tab
-    addRunningScript(script.id);
-    await saveRunningScripts(); // Persist to storage
+    await addRunningScript(script.id);
     
     // Immediately disable the button permanently
     const runButton = document.querySelector(`[data-id="${script.id}"].run-icon`);
@@ -584,8 +634,7 @@ async function runScript(script) {
 
     if (!tab) {
       // Only clear on error
-      removeRunningScript(script.id);
-      await saveRunningScripts();
+      await removeRunningScript(script.id);
       if (runButton) {
         runButton.classList.remove('disabled');
         runButton.innerHTML = '▶️';
@@ -614,8 +663,7 @@ async function runScript(script) {
     showStatus('Failed to execute script', 'error');
     
     // Only clear on error
-    removeRunningScript(script.id);
-    await saveRunningScripts();
+    await removeRunningScript(script.id);
     const runButton = document.querySelector(`[data-id="${script.id}"].run-icon`);
     if (runButton) {
       runButton.classList.remove('disabled');
